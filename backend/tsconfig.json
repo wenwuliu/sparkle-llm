@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    /* 基础配置 */
+    "target": "es2016",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* 输出配置 */
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "sourceMap": true,
+    "removeComments": true,
+
+    /* 类型检查 - 保持现有设置，避免破坏现有代码 */
+    "strict": false,
+
+    /* 优化 */
+    "importHelpers": true,
+    "skipLibCheck": true,
+
+    /* JavaScript支持 */
+    "allowJs": true,
+    "checkJs": false,
+
+    /* 解析JSON */
+    "resolveJsonModule": true,
+
+    /* 隔离模块 */
+    "isolatedModules": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
