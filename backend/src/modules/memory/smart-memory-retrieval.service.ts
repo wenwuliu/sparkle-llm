@@ -330,7 +330,7 @@ export class SmartMemoryRetrievalService {
         const scoreB = (b.relevance_score || 0.5) * 0.6 + (b.importance || 0.5) * 0.4;
         return scoreB - scoreA;
       })
-      .slice(0, 3);
+      .slice(0, 10);
 
     // 压缩格式：只保留核心信息，去除冗余描述
     const compressedMemories = topMemories.map(memory => {
@@ -341,8 +341,8 @@ export class SmartMemoryRetrievalService {
       content = content.replace(/^(记住|需要记住|应该记住)[\s]*[:：]?\s*/, '');
       
       // 限制长度，保留核心信息
-      if (content.length > 80) {
-        content = content.substring(0, 77) + '...';
+      if (content.length > 140) {
+        content = content.substring(0, 137) + '...';
       }
       
       return content;
