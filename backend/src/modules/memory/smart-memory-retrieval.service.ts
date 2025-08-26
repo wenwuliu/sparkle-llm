@@ -5,6 +5,7 @@
 
 import { Memory } from './memory.types';
 import { memoryService } from './index';
+import { vectorDb } from '../vector-db';
 
 // 扩展Memory类型以包含相关性分数
 interface MemoryWithRelevance extends Memory {
@@ -150,158 +151,129 @@ export class SmartMemoryRetrievalService {
   }
 
   /**
-   * 获取相关记忆（带相关性阈值过滤，但保证核心记忆不被过滤）
+   * 获取相关记忆（向量数据库检索，核心记忆始终保留）
    * @param query 查询内容
-   * @param threshold 相关性阈值 (0-1)
+   * @param threshold 相似度阈值 (0-1)
    * @param maxCount 最大返回数量
    * @returns 相关记忆列表
    */
   async getRelevantMemories(query: string, threshold: number = 0.6, maxCount: number = 5): Promise<MemoryWithRelevance[]> {
     try {
-      // 获取更多候选记忆用于过滤
-      const candidateMemories = await memoryService.findRelatedMemories(query, maxCount * 2);
+      // 1) 使用向量数据库进行语义检索
+      // 适当放大检索数量，再做阈值与去重过滤
+      const rawResults: any[] = await vectorDb.semanticSearchMemories(query, Math.max(maxCount * 2, 10));
 
-      if (candidateMemories.length === 0) {
-        return [];
-      }
-
-      // 计算相关性分数
-      const scoredMemories = candidateMemories.map(memory => ({
-        ...memory,
-        relevance_score: this.calculateRelevanceScore(query, memory)
+      // 2) 取出核心记忆（始终保留）
+      const coreMemories = await memoryService.getCoreMemories();
+      const coreWithRelevance: MemoryWithRelevance[] = coreMemories.map(m => ({
+        ...m,
+        relevance_score: 1.0
       }));
 
-      // 分离核心记忆和其他记忆
-      const coreMemories = scoredMemories.filter(memory => memory.memory_type === 'core');
-      const otherMemories = scoredMemories.filter(memory => memory.memory_type !== 'core');
+      // 3) 基于相似度阈值过滤非核心检索结果，并映射相似度为relevance_score
+      const vectorCandidates: MemoryWithRelevance[] = rawResults
+        .filter(m => m && (m.memory_type !== 'core'))
+        .map(m => ({ ...(m as Memory), relevance_score: typeof m.similarity_score === 'number' ? m.similarity_score : 0 }))
+        .filter(m => (m.relevance_score || 0) >= threshold);
 
-      // 核心记忆永远保留，不受相关性阈值限制
-      const selectedCoreMemories = coreMemories;
-
-      // 其他记忆按相关性阈值过滤
-      const relevantOtherMemories = otherMemories.filter(memory =>
-        memory.relevance_score >= threshold
-      );
-
-      // 合并核心记忆和相关的其他记忆
-      const allRelevantMemories = [...selectedCoreMemories, ...relevantOtherMemories];
-
-      // 按相关性和重要性排序，但核心记忆优先
-      allRelevantMemories.sort((a, b) => {
-        // 核心记忆优先级最高
-        if (a.memory_type === 'core' && b.memory_type !== 'core') return -1;
-        if (a.memory_type !== 'core' && b.memory_type === 'core') return 1;
-
-        // 同类型记忆按综合分数排序
-        const scoreA = a.relevance_score * 0.7 + (a.importance || 0.5) * 0.3;
-        const scoreB = b.relevance_score * 0.7 + (b.importance || 0.5) * 0.3;
-        return scoreB - scoreA;
+      // 4) 按相关性与重要性排序
+      vectorCandidates.sort((a, b) => {
+        const sa = (a.relevance_score || 0) * 0.7 + (a.importance || 0.5) * 0.3;
+        const sb = (b.relevance_score || 0) * 0.7 + (b.importance || 0.5) * 0.3;
+        return sb - sa;
       });
 
-      // 返回前N条记忆，但确保所有核心记忆都包含
-      const finalMemories = allRelevantMemories.slice(0, Math.max(maxCount, coreMemories.length));
+      // 5) 合并：核心记忆 + 语义检索结果（去重）
+      const merged: MemoryWithRelevance[] = [...coreWithRelevance];
+      for (const cand of vectorCandidates) {
+        if (!merged.some(m => m.id === cand.id)) {
+          merged.push(cand);
+        }
+        if (merged.length >= Math.max(maxCount, coreWithRelevance.length)) break;
+      }
 
-      console.log(`[智能记忆] 核心记忆: ${coreMemories.length}条, 相关其他记忆: ${relevantOtherMemories.length}条, 最终返回: ${finalMemories.length}条`);
+      console.log(`[智能记忆][向量检索] 核心: ${coreWithRelevance.length}条, 语义相关候选: ${vectorCandidates.length}条, 最终返回: ${merged.length}条 (阈值=${threshold})`);
 
-      return finalMemories;
+      return merged;
     } catch (error) {
-      console.error('获取相关记忆失败:', error);
+      console.error('[智能记忆][向量检索] 获取相关记忆失败:', error);
       return [];
     }
   }
 
   /**
-   * 改进的记忆相关性分数计算
-   * @param query 查询内容
-   * @param memory 记忆对象
-   * @returns 相关性分数 (0-1)
+   * 兼容方法：基于文本的相关性打分（已不再用于主路径）
+   * 保留以便某些fallback或调试使用
    */
   private calculateRelevanceScore(query: string, memory: Memory): number {
-    const queryLower = query.toLowerCase();
-    const contentLower = memory.content.toLowerCase();
-    const keywordsLower = (memory.keywords || '').toLowerCase();
+    try {
+      const queryLower = query.toLowerCase();
+      const contentLower = memory.content.toLowerCase();
+      const keywordsLower = (memory.keywords || '').toLowerCase();
 
-    let score = 0;
+      let score = 0;
 
-    // 改进的中文分词（简化版）
-    const queryWords = this.extractChineseWords(queryLower);
-    const keywordWords = this.extractChineseWords(keywordsLower);
-    const contentWords = this.extractChineseWords(contentLower);
+      const queryWords = this.extractChineseWords(queryLower);
+      const keywordWords = this.extractChineseWords(keywordsLower);
+      const contentWords = this.extractChineseWords(contentLower);
 
-    // 1. 关键词精确匹配 (权重: 0.35)
-    if (queryWords.length > 0 && keywordWords.length > 0) {
-      const exactMatches = queryWords.filter(word => keywordWords.includes(word)).length;
-      const partialMatches = queryWords.filter(word =>
-        !keywordWords.includes(word) &&
-        keywordWords.some(keyword => keyword.includes(word) || word.includes(keyword))
-      ).length;
-
-      const keywordScore = (exactMatches * 1.0 + partialMatches * 0.5) / queryWords.length;
-      score += keywordScore * 0.35;
-    }
-
-    // 2. 内容语义匹配 (权重: 0.25)
-    if (queryWords.length > 0 && contentWords.length > 0) {
-      const exactContentMatches = queryWords.filter(word => contentWords.includes(word)).length;
-      const partialContentMatches = queryWords.filter(word =>
-        !contentWords.includes(word) &&
-        contentWords.some(contentWord => contentWord.includes(word) || word.includes(contentWord))
-      ).length;
-
-      const contentScore = (exactContentMatches * 1.0 + partialContentMatches * 0.3) / queryWords.length;
-      score += contentScore * 0.25;
-    }
-
-    // 3. 记忆类型和重要性 (权重: 0.25)
-    if (memory.memory_type === 'core') {
-      score += 0.25; // 核心记忆基础分数
-    } else {
-      // 根据重要性级别调整分数
-      const importanceBonus = {
-        'important': 0.2,
-        'moderate': 0.15,
-        'unimportant': 0.1
-      };
-      score += importanceBonus[memory.importance_level as keyof typeof importanceBonus] || 0.1;
-
-      // 根据子类型调整相关性
-      if (memory.memory_subtype) {
-        const subtypeBonus = {
-          'instruction': 0.05,
-          'preference': 0.03,
-          'project_info': 0.03,
-          'solution': 0.02
-        };
-        score += subtypeBonus[memory.memory_subtype as keyof typeof subtypeBonus] || 0;
+      if (queryWords.length > 0 && keywordWords.length > 0) {
+        const exactMatches = queryWords.filter(word => keywordWords.includes(word)).length;
+        const partialMatches = queryWords.filter(word =>
+          !keywordWords.includes(word) &&
+          keywordWords.some(keyword => keyword.includes(word) || word.includes(keyword))
+        ).length;
+        const keywordScore = (exactMatches * 1.0 + partialMatches * 0.5) / queryWords.length;
+        score += keywordScore * 0.35;
       }
-    }
 
-    // 4. 改进的时间衰减 (权重: 0.15)
-    if (memory.created_at) {
-      const daysSinceCreated = (Date.now() - memory.created_at) / (1000 * 60 * 60 * 24);
+      if (queryWords.length > 0 && contentWords.length > 0) {
+        const exactContentMatches = queryWords.filter(word => contentWords.includes(word)).length;
+        const partialContentMatches = queryWords.filter(word =>
+          !contentWords.includes(word) &&
+          contentWords.some(contentWord => contentWord.includes(word) || word.includes(contentWord))
+        ).length;
+        const contentScore = (exactContentMatches * 1.0 + partialContentMatches * 0.3) / queryWords.length;
+        score += contentScore * 0.25;
+      }
 
-      let timeDecay;
       if (memory.memory_type === 'core') {
-        // 核心记忆不受时间衰减影响
-        timeDecay = 1.0;
-      } else if (daysSinceCreated <= 7) {
-        // 7天内的记忆保持满分
-        timeDecay = 1.0;
-      } else if (daysSinceCreated <= 30) {
-        // 7-30天线性衰减到0.7
-        timeDecay = 1.0 - (daysSinceCreated - 7) / 23 * 0.3;
-      } else if (daysSinceCreated <= 90) {
-        // 30-90天缓慢衰减到0.3
-        timeDecay = 0.7 - (daysSinceCreated - 30) / 60 * 0.4;
+        score += 0.25;
       } else {
-        // 90天后保持0.3的基础分数
-        timeDecay = 0.3;
+        const importanceBonus: Record<string, number> = {
+          'important': 0.2,
+          'moderate': 0.15,
+          'unimportant': 0.1
+        };
+        score += importanceBonus[memory.importance_level || 'moderate'] || 0.1;
+
+        if (memory.memory_subtype) {
+          const subtypeBonus: Record<string, number> = {
+            'instruction': 0.05,
+            'preference': 0.03,
+            'project_info': 0.03,
+            'solution': 0.02
+          };
+          score += subtypeBonus[memory.memory_subtype] || 0;
+        }
       }
 
-      score += timeDecay * 0.15;
-    }
+      if (memory.created_at) {
+        const daysSinceCreated = (Date.now() - memory.created_at) / (1000 * 60 * 60 * 24);
+        let timeDecay = 1.0;
+        if (memory.memory_type !== 'core') {
+          if (daysSinceCreated <= 7) timeDecay = 1.0;
+          else if (daysSinceCreated <= 30) timeDecay = 1.0 - (daysSinceCreated - 7) / 23 * 0.3;
+          else if (daysSinceCreated <= 90) timeDecay = 0.7 - (daysSinceCreated - 30) / 60 * 0.4;
+          else timeDecay = 0.3;
+        }
+        score += timeDecay * 0.15;
+      }
 
-    return Math.min(1, score); // 确保分数不超过1
+      return Math.min(1, score);
+    } catch {
+      return 0.5; // 发生异常时给个中性分
+    }
   }
 
   /**
@@ -409,17 +381,8 @@ export class SmartMemoryRetrievalService {
       return '';
     }
 
-    // 2. 检测查询类型并调整检索策略
-    const queryType = this.detectQueryType(userMessage);
-    let relevantMemories: any[];
-
-    if (queryType === 'location_dependent') {
-      // 对于位置依赖的查询，优先检索地理位置相关记忆
-      relevantMemories = await this.getLocationRelevantMemories(userMessage);
-    } else {
-      // 常规记忆检索
-      relevantMemories = await this.getRelevantMemories(userMessage, 0.4, 5);
-    }
+    // 2. 使用向量数据库进行通用语义检索
+    const relevantMemories = await this.getRelevantMemories(userMessage, 0.4, 5);
 
     if (relevantMemories.length === 0) {
       console.log('[智能记忆] 未找到相关记忆');
