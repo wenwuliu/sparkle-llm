@@ -72,20 +72,28 @@ const TaskFlowToolCalls: React.FC<TaskFlowToolCallsProps> = ({ toolCalls, style 
     return new Date(timestamp).toLocaleTimeString();
   };
 
-  const formatJson = (obj: any) => {
+  const formatJson = (obj: any): string => {
+    if (obj === undefined || obj === null) return '';
     if (typeof obj === 'string') {
       try {
-        obj = JSON.parse(obj);
+        const parsed = JSON.parse(obj);
+        return JSON.stringify(parsed, null, 2);
       } catch {
         return obj;
       }
     }
-    return JSON.stringify(obj, null, 2);
+    try {
+      const str = JSON.stringify(obj, null, 2);
+      return typeof str === 'string' ? str : String(str ?? '');
+    } catch {
+      return String(obj ?? '');
+    }
   };
 
-  const truncateText = (text: string, maxLength: number = 100) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+  const truncateText = (text: string | undefined | null, maxLength: number = 100) => {
+    const s = typeof text === 'string' ? text : String(text ?? '');
+    if (s.length <= maxLength) return s;
+    return s.substring(0, maxLength) + '...';
   };
 
   return (

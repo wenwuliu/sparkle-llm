@@ -127,6 +127,84 @@ const TaskFlowDisplay: React.FC<TaskFlowDisplayProps> = ({ visible, style }) => 
             </div>
           )}
 
+          {/* 细粒度思考步骤时间线 */}
+          {currentSession.thinkingSteps && currentSession.thinkingSteps.length > 0 && (
+            <div style={{ marginTop: '12px' }}>
+              <Text strong style={{ color: '#1890ff' }}>思考步骤:</Text>
+              <div style={{ marginTop: '8px', display: 'grid', gap: '8px' }}>
+                {currentSession.thinkingSteps.map((step, idx) => (
+                  <div key={step.id || idx} style={{
+                    background: '#fff',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 6,
+                    padding: 12
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ flex: 1 }}>
+                        <Text strong>{step.title || `步骤 ${idx + 1}`}</Text>
+                        {step.tool && (
+                          <Tag color="purple" style={{ marginLeft: 8 }}>{step.tool}</Tag>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {step.duration && step.duration > 0 && step.duration < 60000 && (
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            {step.duration > 1000 ? `${(step.duration / 1000).toFixed(1)}s` : `${step.duration}ms`}
+                          </Text>
+                        )}
+                        <Tag color={step.status === 'completed' ? 'green' : step.status === 'error' ? 'red' : 'blue'}>
+                          {step.status || 'process'}
+                        </Tag>
+                      </div>
+                    </div>
+                    
+                    {step.detail && (
+                      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+                        {step.detail.length > 150 ? step.detail.slice(0, 150) + '...' : step.detail}
+                      </Text>
+                    )}
+                    
+                    {step.args && (
+                      <div style={{ marginTop: 6, padding: 6, background: '#f5f5f5', borderRadius: 4 }}>
+                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 'bold' }}>参数:</Text>
+                        <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                          {typeof step.args === 'object' ? 
+                            JSON.stringify(step.args).slice(0, 100) + (JSON.stringify(step.args).length > 100 ? '...' : '') :
+                            String(step.args).slice(0, 100) + (String(step.args).length > 100 ? '...' : '')
+                          }
+                        </Text>
+                      </div>
+                    )}
+                    
+                    {step.stdout && (
+                      <div style={{ marginTop: 6, padding: 6, background: '#f6ffed', borderRadius: 4 }}>
+                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 'bold', color: '#52c41a' }}>输出:</Text>
+                        <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                          {step.stdout.slice(0, 120) + (step.stdout.length > 120 ? '...' : '')}
+                        </Text>
+                      </div>
+                    )}
+                    
+                    {step.stderr && (
+                      <div style={{ marginTop: 6, padding: 6, background: '#fff2f0', borderRadius: 4 }}>
+                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 'bold', color: '#ff4d4f' }}>错误:</Text>
+                        <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                          {step.stderr.slice(0, 120) + (step.stderr.length > 120 ? '...' : '')}
+                        </Text>
+                      </div>
+                    )}
+                    
+                    {step.time && (
+                      <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 6 }}>
+                        {step.time}
+                      </Text>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 工具调用历史 */}
           {currentSession.toolCalls.length > 0 && (
             <TaskFlowToolCalls toolCalls={currentSession.toolCalls} />

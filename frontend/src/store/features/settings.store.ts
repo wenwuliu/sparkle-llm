@@ -14,6 +14,9 @@ export interface ModelConfig {
   maxTokens?: number;
   topP?: number;
   topK?: number;
+  // 高级模型配置
+  ollamaAdvancedModel?: string;
+  siliconflowAdvancedModel?: string;
 }
 
 export interface UISettings {
@@ -148,10 +151,12 @@ export const useSettingsStore = create<SettingsState>()(
             if (modelConfig.provider === 'ollama') {
               if (modelConfig.apiUrl) settings['ollama_api_url'] = modelConfig.apiUrl;
               if (modelConfig.model) settings['ollama_model'] = modelConfig.model;
+              if (modelConfig.ollamaAdvancedModel) settings['ollama_advanced_model'] = modelConfig.ollamaAdvancedModel;
             } else if (modelConfig.provider === 'siliconflow') {
               if (modelConfig.apiUrl) settings['siliconflow_api_url'] = modelConfig.apiUrl;
               if (modelConfig.apiKey) settings['siliconflow_api_key'] = modelConfig.apiKey;
               if (modelConfig.model) settings['siliconflow_model'] = modelConfig.model;
+              if (modelConfig.siliconflowAdvancedModel) settings['siliconflow_advanced_model'] = modelConfig.siliconflowAdvancedModel;
             }
 
             // 保存到后端
@@ -205,10 +210,12 @@ export const useSettingsStore = create<SettingsState>()(
               if (data.provider === 'ollama' && data.ollama) {
                 modelConfig.apiUrl = data.ollama.apiUrl;
                 modelConfig.model = data.ollama.model;
+                modelConfig.ollamaAdvancedModel = data.ollama.advancedModel;
               } else if (data.provider === 'siliconflow' && data.siliconflow) {
                 modelConfig.apiUrl = data.siliconflow.apiUrl;
                 modelConfig.apiKey = data.siliconflow.apiKey;
                 modelConfig.model = data.siliconflow.model;
+                modelConfig.siliconflowAdvancedModel = data.siliconflow.advancedModel;
               }
             }
 

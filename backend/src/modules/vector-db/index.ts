@@ -12,7 +12,4 @@ export {
 };
 
 // 初始化向量数据库模块
-export function initVectorDbModule(): void {
-  initVectorDatabase();
-  console.log('向量数据库模块初始化完成');
-}
+// 已移除未使用的 initVectorDbModule 导出，避免死代码

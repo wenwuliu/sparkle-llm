@@ -82,6 +82,30 @@ export class ModelService implements IModelService {
       return forceModel;
     }
 
+    // 检查是否在任务流模式下（通过检查全局变量）
+    const isTaskFlowMode = (global as any).taskFlowHandler && (global as any).taskFlowHandler.taskFlowSession;
+
+    if (isTaskFlowMode) {
+      // 任务流模式强制使用高级模型
+      const provider = this.getModelProvider();
+      let advancedModel: string;
+
+      if (provider === 'ollama') {
+        advancedModel = settingService.getSetting('ollama_advanced_model') ||
+                       settingService.getSetting('ollama_model') ||
+                       'qwen3:7b';
+      } else if (provider === 'siliconflow') {
+        advancedModel = settingService.getSetting('siliconflow_advanced_model') ||
+                       settingService.getSetting('siliconflow_model') ||
+                       'Qwen/Qwen2.5-32B-Instruct';
+      } else {
+        advancedModel = settingService.getSmartModel(true); // 强制使用复杂任务模型
+      }
+
+      console.log(`🤖 任务流模式强制使用高级模型: ${advancedModel}`);
+      return advancedModel;
+    }
+
     // 分析任务复杂度
     const complexityResult = taskComplexityService.analyzeTaskComplexity(userMessage, hasTools);
 

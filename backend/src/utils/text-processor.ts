@@ -104,6 +104,16 @@ export function parseJsonFromModelResponse(text: string, options: {
     console.log(`${logPrefix}清理后的响应:`, cleanedResponse.substring(0, 200) + (cleanedResponse.length > 200 ? '...' : ''));
   }
 
+  // 如果cleanedResponse中包含```json，则先移除```json后，再进行解析
+  if (cleanedResponse.includes('```json')) {
+    try {
+      const jsonStr = cleanedResponse.replace('```json', '').replace('```', '');
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      console.log(`${logPrefix}移除\`\`\`json后解析失败, 尝试使用正则表达式提取JSON`);
+    }
+  }
+
   // 解析策略1: 尝试直接解析整个响应
   try {
     const parsedResponse = JSON.parse(cleanedResponse.trim());

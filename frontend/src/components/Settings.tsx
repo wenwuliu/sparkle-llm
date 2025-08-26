@@ -67,9 +67,11 @@ const Settings: React.FC<SettingsProps> = () => {
       const formValues = {
         modelProvider: modelConfig.provider || 'ollama',
         ollamaApiUrl: modelConfig.provider === 'ollama' ? (modelConfig.apiUrl || 'http://localhost:11434/api') : 'http://localhost:11434/api',
+        ollamaAdvancedModel: modelConfig.ollamaAdvancedModel || 'qwen3:7b',
         siliconflowApiUrl: modelConfig.provider === 'siliconflow' ? (modelConfig.apiUrl || 'https://api.siliconflow.cn/v1/chat/completions') : 'https://api.siliconflow.cn/v1/chat/completions',
         siliconflowApiKey: modelConfig.provider === 'siliconflow' ? (modelConfig.apiKey || '') : '',
         siliconflowModel: modelConfig.provider === 'siliconflow' ? (modelConfig.model || 'Qwen/Qwen2.5-7B-Instruct') : 'Qwen/Qwen2.5-7B-Instruct',
+        siliconflowAdvancedModel: modelConfig.siliconflowAdvancedModel || 'Qwen/Qwen2.5-32B-Instruct',
         temperature: modelConfig.temperature || 0.7,
         maxTokens: modelConfig.maxTokens || 2048,
       };
@@ -197,6 +199,8 @@ const Settings: React.FC<SettingsProps> = () => {
         apiUrl: values.modelProvider === 'ollama' ? values.ollamaApiUrl : values.siliconflowApiUrl,
         apiKey: values.modelProvider === 'siliconflow' ? values.siliconflowApiKey : undefined,
         model: values.modelProvider === 'ollama' ? values.ollamaModel : values.siliconflowModel,
+        ollamaAdvancedModel: values.modelProvider === 'ollama' ? values.ollamaAdvancedModel : undefined,
+        siliconflowAdvancedModel: values.modelProvider === 'siliconflow' ? values.siliconflowAdvancedModel : undefined,
         temperature: values.temperature,
         maxTokens: values.maxTokens,
       });
@@ -231,9 +235,11 @@ const Settings: React.FC<SettingsProps> = () => {
         initialValues={{
           modelProvider: modelConfig.provider || 'ollama',
           ollamaApiUrl: 'http://localhost:11434/api',
+          ollamaAdvancedModel: modelConfig.ollamaAdvancedModel || 'qwen3:7b',
           siliconflowApiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
           siliconflowApiKey: '',
           siliconflowModel: 'Qwen/Qwen2.5-7B-Instruct',
+          siliconflowAdvancedModel: modelConfig.siliconflowAdvancedModel || 'Qwen/Qwen2.5-32B-Instruct',
           temperature: modelConfig.temperature || 0.7,
           maxTokens: modelConfig.maxTokens || 2048,
           enableMemory: true,
@@ -253,7 +259,7 @@ const Settings: React.FC<SettingsProps> = () => {
               <Radio.Button value="siliconflow">在线 硅基流动</Radio.Button>
             </Radio.Group>
             <div style={{ marginTop: 8, color: '#666', fontSize: '12px' }}>
-              💡 系统会根据任务复杂度自动选择合适的模型：基础任务使用轻量模型，复杂任务使用高级模型
+              💡 系统会根据任务复杂度自动选择合适的模型：基础任务使用默认模型，复杂任务使用高级模型
             </div>
           </Form.Item>
         </Card>
@@ -323,7 +329,7 @@ const Settings: React.FC<SettingsProps> = () => {
             <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6 }}>
               <Text style={{ color: '#52c41a', fontWeight: 500 }}>🤖 智能模型选择 + 💰 成本优化</Text>
               <div style={{ marginTop: 4, fontSize: '12px', color: '#666' }}>
-                • 基础任务（问候、简单问答）：自动使用 <code>Qwen/Qwen2.5-7B-Instruct</code> 免费模型<br/>
+                • 基础任务（问候、简单问答）：自动使用 <code>Qwen/Qwen2.5-7B-Instruct</code> 默认模型<br/>
                 • 复杂任务（代码、分析、创作）：使用下方配置的高级模型
               </div>
             </div>

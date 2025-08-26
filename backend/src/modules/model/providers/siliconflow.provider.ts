@@ -311,8 +311,19 @@ export class SiliconFlowProvider implements ModelProvider {
                 // 提取工具调用
                 const toolCalls = data.choices[0].message.tool_calls.map((toolCall: any) => {
                     try {
-                        // 解析函数参数
-                        const args = JSON.parse(toolCall.function.arguments);
+                        // 兼容不同返回格式：arguments 可能是字符串或对象
+                        const rawArgs = toolCall?.function?.arguments;
+                        let args: any = {};
+
+                        if (typeof rawArgs === 'string') {
+                            const trimmed = rawArgs.trim();
+                            // 优先尝试标准 JSON 解析
+                            args = JSON.parse(trimmed);
+                        } else if (rawArgs && typeof rawArgs === 'object') {
+                            args = rawArgs;
+                        } else {
+                            args = {};
+                        }
 
                         return {
                             name: toolCall.function.name,
@@ -320,10 +331,36 @@ export class SiliconFlowProvider implements ModelProvider {
                         };
                     } catch (error) {
                         console.error('解析工具调用参数错误:', error);
-                        return {
-                            name: toolCall.function.name,
-                            input: {}
-                        };
+                        // 容错：尝试从原始字符串中提取 command 和 risk_level
+                        try {
+                            const rawArgs = toolCall?.function?.arguments as string;
+                            let commandMatch: RegExpMatchArray | null = null;
+                            let riskMatch: RegExpMatchArray | null = null;
+                            if (typeof rawArgs === 'string') {
+                                commandMatch = rawArgs.match(/"command"\s*:\s*"([\s\S]*?)"\s*(,|\})/);
+                                riskMatch = rawArgs.match(/"risk_level"\s*:\s*"([^"]*)"/);
+                            }
+
+                            const fallbackArgs: any = {};
+                            if (commandMatch && commandMatch[1]) {
+                                // 还原常见转义
+                                const cmd = commandMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\t/g, '\t').replace(/\\r/g, '\r');
+                                fallbackArgs.command = cmd;
+                            }
+                            if (riskMatch && riskMatch[1]) {
+                                fallbackArgs.risk_level = riskMatch[1];
+                            }
+
+                            return {
+                                name: toolCall?.function?.name || 'unknown_tool',
+                                input: Object.keys(fallbackArgs).length > 0 ? fallbackArgs : {}
+                            };
+                        } catch {
+                            return {
+                                name: toolCall?.function?.name || 'unknown_tool',
+                                input: {}
+                            };
+                        }
                     }
                 });
 

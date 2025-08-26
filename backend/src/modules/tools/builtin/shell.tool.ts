@@ -27,13 +27,13 @@ export function registerShellTools(): void {
   // 安全Shell工具
   toolManager.registerTool({
     name: 'safe_shell',
-    description: '执行Shell命令，支持大多数系统操作，包括文件读写、搜索等文件操作，但禁止危及系统安全的命令',
+    description: '执行Shell命令，支持大多数系统操作，包括文件读写、搜索等文件操作，但禁止危及系统安全的命令。重要：通过工具参数传入的命令必须是有效的 JSON 字符串；若命令内包含引号或脚本片段（HTML/JS/CSS/多行shell），请确保完成必要的转义。例如：在 JSON 字符串中必须将双引号转义为 \\\"，反斜杠转义为 \\\\\n；或者优先使用 here-doc 且使用单引号定界符（如 << \'EOF\' ... EOF）以减少转义；总之，确保工具参数可被 JSON.parse 正确解析。',
     input_schema: {
       type: 'object',
       properties: {
         command: {
           type: 'string',
-          description: '要执行的Shell命令，支持大多数系统操作，包括文件读写(cat/echo)、搜索(find/grep)等文件操作，但禁止危及系统安全的命令',
+          description: '要执行的Shell命令。若包含脚本/HTML等多行内容，必须满足：1) 参数整体为合法 JSON 字符串；2) 内部引号与反斜杠已正确转义（例如 \" -> \\\"，\\ -> \\\\）；或使用 here-doc 单引号定界符（<< \'EOF\' ... EOF）以减少转义；否则将导致 JSON 解析失败。',
         },
         risk_level: {
           type: 'string',
@@ -54,7 +54,17 @@ export function registerShellTools(): void {
       risk_level?: RiskLevel;
       use_sudo?: boolean;
     }) => {
-      const { command, risk_level = 'medium', use_sudo = false } = input;
+      // 基本输入校验与规范化
+      if (!input || typeof input.command !== 'string') {
+        return {
+          error: '无效的输入：缺少 command 字符串参数',
+          success: false,
+          risk_level: 'high',
+        };
+      }
+
+      const { risk_level = 'medium', use_sudo = false } = input;
+      const command = input.command;
 
       // 检测命令是否以sudo开头，如果是，则自动设置use_sudo为true
       const isSudoCommand = command.trim().startsWith('sudo ');
@@ -204,11 +214,14 @@ export function registerShellTools(): void {
           // 清除密码
           sudoPermissionService.clearSudoPassword(requestId);
 
+          const stdoutStr = String(stdout || '');
+          const stderrStr = String(stderr || '');
+
           return {
             command,
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-            success: stderr.trim() === '',
+            stdout: stdoutStr.trim(),
+            stderr: stderrStr.trim(),
+            success: stderrStr.trim() === '',
             risk_level,
             sudo: true,
           };
@@ -223,14 +236,20 @@ export function registerShellTools(): void {
         }
       } else {
         try {
-          // 执行普通命令
-          const { stdout, stderr } = await execPromise(command);
+          // 执行普通命令，增加超时与缓冲限制，避免卡死与超大输出
+          const { stdout, stderr } = await execPromise(command, {
+            timeout: 60_000, // 60 秒超时
+            maxBuffer: 5 * 1024 * 1024, // 5MB 输出上限
+          } as any);
+
+          const stdoutStr = String(stdout || '');
+          const stderrStr = String(stderr || '');
 
           return {
             command,
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-            success: stderr.trim() === '',
+            stdout: stdoutStr.trim(),
+            stderr: stderrStr.trim(),
+            success: stderrStr.trim() === '',
             risk_level,
           };
         } catch (error) {

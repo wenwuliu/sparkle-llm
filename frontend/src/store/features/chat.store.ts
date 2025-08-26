@@ -34,6 +34,7 @@ export interface TaskFlowSession {
     progress?: number;
   };
   toolCalls: any[];
+  thinkingSteps?: any[];
   result?: any;
   createdAt: number;
 }
@@ -87,6 +88,7 @@ interface ChatState {
   startTaskFlowSession: (id: string) => void;
   updateTaskFlowStatus: (status: TaskFlowSession['status']) => void;
   addToolCall: (toolCall: ToolCall) => void;
+  setThinkingSteps: (steps: any[]) => void;
   completeTaskFlow: (result?: any) => void;
   clearTaskFlowState: () => void;
   
@@ -213,6 +215,17 @@ export const useChatStore = create<ChatState>()(
             ? {
                 ...state.currentTaskSession,
                 toolCalls: [...state.currentTaskSession.toolCalls, toolCall]
+              }
+            : null
+        }));
+      },
+
+      setThinkingSteps: (steps) => {
+        set((state) => ({
+          currentTaskSession: state.currentTaskSession
+            ? {
+                ...state.currentTaskSession,
+                thinkingSteps: steps
               }
             : null
         }));

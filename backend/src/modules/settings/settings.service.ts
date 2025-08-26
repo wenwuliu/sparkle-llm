@@ -154,7 +154,7 @@ export class SettingService implements ISettingService {
                DEFAULT_MODEL_CONFIG.OLLAMA.ADVANCED_MODEL;
       } else {
         // 基础任务使用轻量模型
-        return DEFAULT_MODEL_CONFIG.OLLAMA.BASIC_MODEL;
+        return DEFAULT_MODEL_CONFIG.OLLAMA.MODEL;
       }
     } else if (provider === 'siliconflow') {
       if (isComplexTask) {
@@ -164,7 +164,7 @@ export class SettingService implements ISettingService {
                DEFAULT_MODEL_CONFIG.SILICONFLOW.ADVANCED_MODEL;
       } else {
         // 基础任务使用免费模型
-        return DEFAULT_MODEL_CONFIG.SILICONFLOW.BASIC_MODEL;
+        return DEFAULT_MODEL_CONFIG.SILICONFLOW.MODEL;
       }
     }
 
@@ -180,9 +180,9 @@ export class SettingService implements ISettingService {
     const provider = this.getModelProvider();
 
     if (provider === 'ollama') {
-      return DEFAULT_MODEL_CONFIG.OLLAMA.BASIC_MODEL;
+      return DEFAULT_MODEL_CONFIG.OLLAMA.MODEL;
     } else if (provider === 'siliconflow') {
-      return DEFAULT_MODEL_CONFIG.SILICONFLOW.BASIC_MODEL;
+      return DEFAULT_MODEL_CONFIG.SILICONFLOW.MODEL;
     }
 
     return this.getCurrentModel();
@@ -313,12 +313,14 @@ export class SettingService implements ISettingService {
       config.ollama = {
         apiUrl: this.getModelApiUrl(),
         model: this.getCurrentModel(),
+        advancedModel: this.getSetting('ollama_advanced_model') || DEFAULT_MODEL_CONFIG.OLLAMA.ADVANCED_MODEL,
       };
     } else if (provider === 'siliconflow') {
       config.siliconflow = {
         apiUrl: this.getModelApiUrl(),
         apiKey: this.getModelApiKey(),
         model: this.getCurrentModel(),
+        advancedModel: this.getSetting('siliconflow_advanced_model') || DEFAULT_MODEL_CONFIG.SILICONFLOW.ADVANCED_MODEL,
       };
     }
 

@@ -165,12 +165,31 @@ export class TaskFlowHandler {
         const historyWindow = settingService.getHistoryWindowSize();
         console.log(`[任务流] ${sessionId}: 开始调用模型服务...`);
 
+        // 任务流模式强制使用高级模型
+        const provider = settingService.getModelProvider();
+        let forceModel: string | undefined;
+
+        if (provider === 'ollama') {
+          // 强制使用用户配置的高级Ollama模型
+          forceModel = settingService.getSetting('ollama_advanced_model') ||
+                      settingService.getSetting('ollama_model') ||
+                      'qwen3:7b';
+          console.log(`[任务流] ${sessionId}: 强制使用Ollama高级模型: ${forceModel}`);
+        } else if (provider === 'siliconflow') {
+          // 强制使用用户配置的高级硅基流动模型
+          forceModel = settingService.getSetting('siliconflow_advanced_model') ||
+                      settingService.getSetting('siliconflow_model') ||
+                      'Qwen/Qwen2.5-32B-Instruct';
+          console.log(`[任务流] ${sessionId}: 强制使用硅基流动高级模型: ${forceModel}`);
+        }
+
         const response = await modelService.generateTextWithTools(currentPrompt, {
           tools: useTools ? toolManager.getToolDescriptions() : [],
           conversationId,
           historyWindow,
           temperature: 0.3,
-          max_tokens: 4096
+          max_tokens: 4096,
+          model: forceModel // 强制使用高级模型
         });
 
         console.log(`[任务流] ${sessionId}: 模型响应完成，工具调用数量: ${response.tool_calls?.length || 0}`);
