@@ -105,12 +105,12 @@ export enum SocketEventType {
   THINKING_USER_ANSWER = 'thinking:user_answer',
   THINKING_STEP_OPERATION = 'thinking:step_operation', // 思考步骤操作更新
 
-  // 任务流事件
-  TASK_FLOW_START = 'task_flow:start',
-  TASK_FLOW_STATUS = 'task_flow:status',
-  TASK_FLOW_TOOL_CALL = 'task_flow:tool_call',
-  TASK_FLOW_COMPLETE = 'task_flow:complete',
-  TASK_FLOW_STOP = 'task_flow:stop',
+  // Agent事件
+  AGENT_START = 'agent:start',
+  AGENT_PROGRESS = 'agent:progress',
+  AGENT_ERROR = 'agent:error',
+  AGENT_COMPLETE = 'agent:complete',
+  AGENT_STOP = 'agent:stop',
 
   // 记忆事件
   MEMORY_CREATE = 'memory:create',

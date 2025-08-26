@@ -25,20 +25,6 @@ export interface Conversation {
   updatedAt: number;
 }
 
-// TaskFlow相关接口
-export interface TaskFlowSession {
-  id: string;
-  status: {
-    status: 'planning' | 'executing' | 'completed' | 'failed';
-    currentStep?: string;
-    progress?: number;
-  };
-  toolCalls: any[];
-  thinkingSteps?: any[];
-  result?: any;
-  createdAt: number;
-}
-
 export interface ToolCall {
   id: string;
   name: string;
@@ -61,10 +47,6 @@ interface ChatState {
   historyDrawerVisible: boolean;
   taskPanelVisible: boolean;
 
-  // TaskFlow状态
-  currentTaskSession: TaskFlowSession | null;
-  taskFlowHistory: TaskFlowSession[];
-
   // 基础操作
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
   updateMessage: (id: string, updates: Partial<Message>) => void;
@@ -83,18 +65,9 @@ interface ChatState {
   setInputValue: (value: string) => void;
   setHistoryDrawerVisible: (visible: boolean) => void;
   setTaskPanelVisible: (visible: boolean) => void;
-
-  // TaskFlow操作
-  startTaskFlowSession: (id: string) => void;
-  updateTaskFlowStatus: (status: TaskFlowSession['status']) => void;
-  addToolCall: (toolCall: ToolCall) => void;
-  setThinkingSteps: (steps: any[]) => void;
-  completeTaskFlow: (result?: any) => void;
-  clearTaskFlowState: () => void;
   
   // 复合操作
   sendMessage: (content: string) => Promise<void>;
-  sendTaskFlowMessage: (content: string, useTools?: boolean) => Promise<void>;
   createNewConversationAction: () => Promise<void>;
   initializeSocketListeners: () => Promise<void>;
   regenerateResponse: (messageId: string) => Promise<void>;
@@ -116,208 +89,133 @@ export const useChatStore = create<ChatState>()(
       historyDrawerVisible: false,
       taskPanelVisible: false,
 
-      // TaskFlow状态
-      currentTaskSession: null,
-      taskFlowHistory: [],
-      
       // 基础操作
       addMessage: (message) => {
         const newMessage: Message = {
           ...message,
-          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: Date.now().toString(),
           timestamp: Date.now()
         };
-        
         set((state) => ({
           messages: [...state.messages, newMessage]
         }));
       },
-      
+
       updateMessage: (id, updates) => {
         set((state) => ({
-          messages: state.messages.map(msg => 
+          messages: state.messages.map(msg =>
             msg.id === id ? { ...msg, ...updates } : msg
           )
         }));
       },
-      
+
       deleteMessage: (id) => {
         set((state) => ({
           messages: state.messages.filter(msg => msg.id !== id)
         }));
       },
-      
+
       clearMessages: () => {
         set({ messages: [] });
       },
-      
-      // 对话操作
+
       setConversations: (conversations) => {
         set({ conversations });
       },
-      
+
       setCurrentConversation: (conversation) => {
-        set({ 
-          currentConversation: conversation,
-          messages: conversation?.messages || []
-        });
+        set({ currentConversation: conversation });
       },
-      
+
       createNewConversation: () => {
         const newConversation: Conversation = {
-          id: `conv_${Date.now()}`,
+          id: Date.now().toString(),
           title: '新对话',
           messages: [],
           createdAt: Date.now(),
           updatedAt: Date.now()
         };
-        
         set((state) => ({
           conversations: [newConversation, ...state.conversations],
-          currentConversation: newConversation,
-          messages: []
+          currentConversation: newConversation
         }));
       },
-      
-      // 状态操作
-      setLoading: (loading) => set({ isLoading: loading }),
-      setThinking: (thinking) => set({ isThinking: thinking }),
-      setError: (error) => set({ error }),
+
+      setLoading: (loading) => {
+        set({ isLoading: loading });
+      },
+
+      setThinking: (thinking) => {
+        set({ isThinking: thinking });
+      },
+
+      setError: (error) => {
+        set({ error });
+      },
 
       // UI操作
-      setInputValue: (value) => set({ inputValue: value }),
-      setHistoryDrawerVisible: (visible) => set({ historyDrawerVisible: visible }),
-      setTaskPanelVisible: (visible) => set({ taskPanelVisible: visible }),
-
-      // TaskFlow操作
-      startTaskFlowSession: (id) => {
-        const newSession: TaskFlowSession = {
-          id,
-          status: { status: 'planning', progress: 0 },
-          toolCalls: [],
-          createdAt: Date.now()
-        };
-
-        set({ currentTaskSession: newSession });
+      setInputValue: (value) => {
+        set({ inputValue: value });
       },
 
-      updateTaskFlowStatus: (status) => {
-        set((state) => ({
-          currentTaskSession: state.currentTaskSession
-            ? { ...state.currentTaskSession, status }
-            : null
-        }));
+      setHistoryDrawerVisible: (visible) => {
+        set({ historyDrawerVisible: visible });
       },
 
-      addToolCall: (toolCall) => {
-        set((state) => ({
-          currentTaskSession: state.currentTaskSession
-            ? {
-                ...state.currentTaskSession,
-                toolCalls: [...state.currentTaskSession.toolCalls, toolCall]
-              }
-            : null
-        }));
+      setTaskPanelVisible: (visible) => {
+        set({ taskPanelVisible: visible });
       },
 
-      setThinkingSteps: (steps) => {
-        set((state) => ({
-          currentTaskSession: state.currentTaskSession
-            ? {
-                ...state.currentTaskSession,
-                thinkingSteps: steps
-              }
-            : null
-        }));
-      },
-
-      completeTaskFlow: (result) => {
-        set((state) => {
-          if (!state.currentTaskSession) return state;
-
-          const completedSession = {
-            ...state.currentTaskSession,
-            status: { status: 'completed' as const, progress: 100 },
-            result
-          };
-
-          return {
-            currentTaskSession: null,
-            taskFlowHistory: [completedSession, ...state.taskFlowHistory]
-          };
-        });
-      },
-
-      clearTaskFlowState: () => {
-        set({ currentTaskSession: null });
-      },
-
-      // Socket事件处理（简化版）
-      initializeSocketListeners: async () => {
-        // 暂时保留空实现，后续逐步迁移Socket逻辑
-        console.log('Socket监听器初始化（待实现）');
-      },
-      
-      // 复合操作（简化版）
-      sendMessage: async (content) => {
-        const { setInputValue } = get();
-
-        try {
-          // 清空输入框
-          setInputValue('');
-          console.log('发送消息:', content);
-        } catch (error) {
-          console.error('发送消息失败:', error);
-        }
-      },
-
-      // TaskFlow消息发送（简化版）
-      sendTaskFlowMessage: async (content, useTools = false) => {
-        const { setInputValue } = get();
-
-        try {
-          // 清空输入框
-          setInputValue('');
-          console.log('发送任务流消息:', content, useTools);
-        } catch (error) {
-          console.error('发送任务流消息失败:', error);
-        }
-      },
-
-      // 创建新对话
-      createNewConversationAction: async () => {
-        const { setHistoryDrawerVisible, clearTaskFlowState, clearMessages } = get();
-
-        try {
-          // 清除当前状态
-          clearMessages();
-          clearTaskFlowState();
-          setHistoryDrawerVisible(false);
-
-          // 通过Socket创建新对话
-          const { socketService } = await import('../../services/socketService');
-          socketService.createConversation();
-
-        } catch (error) {
-          console.error('创建新对话失败:', error);
-        }
-      },
-      
-      regenerateResponse: async (_messageId) => {
-        const { setLoading, setError } = get();
+      // 复合操作
+      sendMessage: async (content: string) => {
+        const { addMessage, setLoading } = get();
         
-        try {
-          setLoading(true);
-          setError(null);
-          
-          // 重新生成响应的逻辑
-          // 这里会调用相应的API
-          
-        } catch (error) {
-          setError(error instanceof Error ? error.message : '重新生成失败');
-        } finally {
+        // 添加用户消息
+        addMessage({
+          role: 'user',
+          content,
+          sender: 'user'
+        });
+
+        setLoading(true);
+
+        // 这里可以添加发送消息到后端的逻辑
+        // 暂时模拟AI回复
+        setTimeout(() => {
+          addMessage({
+            role: 'assistant',
+            content: `收到您的消息: ${content}`,
+            sender: 'assistant'
+          });
           setLoading(false);
-        }
+        }, 1000);
+      },
+
+      createNewConversationAction: async () => {
+        const { createNewConversation } = get();
+        createNewConversation();
+      },
+
+      initializeSocketListeners: async () => {
+        // 初始化Socket监听器的逻辑
+        console.log('初始化Socket监听器');
+      },
+
+      regenerateResponse: async (messageId: string) => {
+        const { updateMessage } = get();
+        
+        updateMessage(messageId, {
+          isLoading: true,
+          error: undefined
+        });
+
+        // 模拟重新生成回复
+        setTimeout(() => {
+          updateMessage(messageId, {
+            content: '重新生成的回复内容',
+            isLoading: false
+          });
+        }, 2000);
       }
     }),
     {

@@ -4,22 +4,23 @@ import { SendOutlined, RobotOutlined, HistoryOutlined, PlusOutlined } from '@ant
 import { socketService, ChatMessage } from '../services/socketService';
 
 import { useChatStore } from '../store';
+import { useAgentStore } from '../store/features/agent.store';
 import ConversationHistory from './ConversationHistory';
-// import EnhancedMarkdownContent from './EnhancedMarkdownContent';
 import MessageItem from './MessageItem';
 import TaskExecutionPanel from './TaskExecutionPanel';
-import TaskFlowDisplay from './TaskFlowDisplay';
+import AgentDisplay from './AgentDisplay';
 import { ConversationMessage, FrontendMessage as Message } from '../types/conversation';
+import { AgentSession } from '../types/agent.types';
 import { convertToFrontendMessage } from '../utils/conversationUtils';
-import '../styles/task-flow.css';
+import '../styles/agent.css';
 
 const { TextArea } = Input;
 const { Text } = Typography;
 
 interface ChatBoxProps {
-  taskFlowMode: boolean;
+  agentMode: boolean;
   useTools?: boolean;
-  onTaskFlowModeChange?: (enabled: boolean) => void;
+  onAgentModeChange?: (enabled: boolean) => void;
   onUseToolsChange?: (enabled: boolean) => void;
 }
 
@@ -27,9 +28,9 @@ interface ChatBoxProps {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const ChatBox: React.FC<ChatBoxProps> = ({
-  taskFlowMode,
+  agentMode,
   useTools = false,
-  onTaskFlowModeChange,
+  onAgentModeChange,
   onUseToolsChange
 }) => {
   // 保留本地状态（渐进式重构）
@@ -41,17 +42,21 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const [taskPanelVisible, setTaskPanelVisible] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 使用ChatStore的功能（包括TaskFlow）
+  // 使用ChatStore的功能
   const {
     inputValue,
-    setInputValue,
-    currentTaskSession,
-    startTaskFlowSession,
-    updateTaskFlowStatus,
-    addToolCall,
-    completeTaskFlow,
-    clearTaskFlowState
+    setInputValue
   } = useChatStore();
+
+  // 使用AgentStore的功能
+  const {
+    currentAgentSession,
+    startAgentSession,
+    updateAgentSession,
+    completeAgentSession,
+    failAgentSession,
+    clearAgentSession
+  } = useAgentStore();
 
   // 初始化Socket连接和注册事件监听器
   useEffect(() => {
@@ -145,52 +150,72 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       });
     });
 
-    // 监听任务流开始事件
-    const taskFlowStartListener = (event: any) => {
-      console.log('收到任务流开始事件:', event);
-      startTaskFlowSession(event.sessionId);
+    // 监听Agent开始事件
+    const agentStartListener = (event: any) => {
+      console.log('收到Agent开始事件:', event);
+      const session: AgentSession = {
+        id: event.sessionId,
+        task: event.task,
+        goal: event.goal,
+        status: 'running',
+        startTime: Date.now()
+      };
+      startAgentSession(session);
 
-      // 自动切换到任务流模式
-      if (!taskFlowMode && onTaskFlowModeChange) {
-        console.log('自动切换到任务流模式');
-        onTaskFlowModeChange(true);
+      // 自动切换到Agent模式
+      if (!agentMode && onAgentModeChange) {
+        console.log('自动切换到Agent模式');
+        onAgentModeChange(true);
       }
 
-      // 如果任务流使用工具，自动开启工具选项
+      // 如果Agent使用工具，自动开启工具选项
       if (event.useTools && !useTools && onUseToolsChange) {
         console.log('自动开启工具选项');
         onUseToolsChange(true);
       }
 
-      // 任务流开始后，清除旧的思考状态，因为现在使用任务流状态
+      // Agent开始后，清除旧的思考状态，因为现在使用Agent状态
       setIsThinking(false);
       setIsLoading(false);
     };
-    socketService.addTaskFlowStartListener(taskFlowStartListener);
+    socketService.addAgentStartListener(agentStartListener);
 
-    // 监听任务流状态更新
-    const taskFlowStatusListener = (event: any) => {
-      console.log('收到任务流状态更新:', event);
-      updateTaskFlowStatus(event);
+    // 监听Agent进度更新
+    const agentProgressListener = (event: any) => {
+      console.log('收到Agent进度更新:', event);
+      updateAgentSession(event.sessionId, event);
     };
-    socketService.addTaskFlowStatusListener(taskFlowStatusListener);
+    socketService.addAgentProgressListener(agentProgressListener);
 
-    // 监听任务流工具调用
-    const taskFlowToolCallListener = (event: any) => {
-      console.log('收到任务流工具调用:', event);
-      addToolCall(event);
-    };
-    socketService.addTaskFlowToolCallListener(taskFlowToolCallListener);
-
-    // 监听任务流完成
-    const taskFlowCompleteListener = (event: any) => {
-      console.log('收到任务流完成事件:', event);
-      completeTaskFlow(event.result);
+    // 监听Agent错误
+    const agentErrorListener = (event: any) => {
+      console.log('收到Agent错误事件:', event);
+      failAgentSession(event.sessionId, event.error);
       // 重置思考状态
       setIsThinking(false);
       setIsLoading(false);
     };
-    socketService.addTaskFlowCompleteListener(taskFlowCompleteListener);
+    socketService.addAgentErrorListener(agentErrorListener);
+
+    // 监听Agent完成
+    const agentCompleteListener = (event: any) => {
+      console.log('收到Agent完成事件:', event);
+      completeAgentSession(event.sessionId, event.result);
+      // 重置思考状态
+      setIsThinking(false);
+      setIsLoading(false);
+    };
+    socketService.addAgentCompleteListener(agentCompleteListener);
+
+    // 监听Agent停止
+    const agentStopListener = (event: any) => {
+      console.log('收到Agent停止事件:', event);
+      clearAgentSession(event.sessionId);
+      // 重置思考状态
+      setIsThinking(false);
+      setIsLoading(false);
+    };
+    socketService.addAgentStopListener(agentStopListener);
 
     // 监听错误
     const errorUnsubscribe = socketService.onError((error) => {
@@ -202,16 +227,20 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     const conversationCreatedUnsubscribe = socketService.onConversationCreated((conversation) => {
       setActiveConversation(conversation);
       setMessages([]);
-      // 清除任务流状态，避免在新对话中显示上一个对话的任务流
-      clearTaskFlowState();
+      // 清除Agent状态，避免在新对话中显示上一个对话的Agent
+      if (currentAgentSession) {
+        clearAgentSession(currentAgentSession.id);
+      }
     });
 
     // 监听对话激活
     const conversationActivatedUnsubscribe = socketService.onConversationActivated((conversation) => {
       setActiveConversation(conversation);
       loadConversationMessages(conversation.id);
-      // 清除任务流状态，避免在切换对话时显示上一个对话的任务流
-      clearTaskFlowState();
+      // 清除Agent状态，避免在切换对话时显示上一个对话的Agent
+      if (currentAgentSession) {
+        clearAgentSession(currentAgentSession.id);
+      }
     });
 
     // 监听对话更新
@@ -251,11 +280,12 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       thinkingStartUnsubscribe();
       thinkingEndUnsubscribe();
 
-      // 清理任务流监听器
-      socketService.removeTaskFlowStartListener(taskFlowStartListener);
-      socketService.removeTaskFlowStatusListener(taskFlowStatusListener);
-      socketService.removeTaskFlowToolCallListener(taskFlowToolCallListener);
-      socketService.removeTaskFlowCompleteListener(taskFlowCompleteListener);
+      // 清理Agent监听器
+      socketService.removeAgentStartListener(agentStartListener);
+      socketService.removeAgentProgressListener(agentProgressListener);
+      socketService.removeAgentErrorListener(agentErrorListener);
+      socketService.removeAgentCompleteListener(agentCompleteListener);
+      socketService.removeAgentStopListener(agentStopListener);
     };
   }, []);
 
@@ -330,8 +360,6 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     scrollToBottom();
   }, [messages]);
 
-
-
   // 发送消息
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
@@ -339,10 +367,12 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     setIsLoading(true);
     setIsThinking(true);
 
-    if (taskFlowMode) {
-      // 发送任务流消息，包含是否使用工具的选项
-      socketService.sendTaskFlowMessage(inputValue, useTools);
-      clearTaskFlowState();
+    if (agentMode) {
+      // 发送Agent消息，包含是否使用工具的选项
+      socketService.sendAgentMessage(inputValue, useTools);
+      if (currentAgentSession) {
+        clearAgentSession(currentAgentSession.id);
+      }
     } else {
       // 发送普通消息
       socketService.sendMessage(inputValue);
@@ -355,15 +385,19 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const handleNewConversation = () => {
     socketService.createConversation();
     setHistoryDrawerVisible(false);
-    clearTaskFlowState();
+    if (currentAgentSession) {
+      clearAgentSession(currentAgentSession.id);
+    }
   };
 
   // 选择对话
   const handleSelectConversation = (conversationId: number) => {
     socketService.activateConversation(conversationId);
     setHistoryDrawerVisible(false);
-    // 清除任务流状态，避免在切换对话时显示上一个对话的任务流
-    clearTaskFlowState();
+    // 清除Agent状态，避免在切换对话时显示上一个对话的Agent
+    if (currentAgentSession) {
+      clearAgentSession(currentAgentSession.id);
+    }
   };
 
   return (
@@ -397,11 +431,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           <MessageItem key={message.id} message={message} />
         ))}
 
-        {/* 任务流显示 */}
-        <TaskFlowDisplay visible={taskFlowMode || !!currentTaskSession} />
+        {/* Agent显示 */}
+        <AgentDisplay visible={agentMode || !!currentAgentSession} />
 
-        {/* 保留简单的思考状态显示（兼容性） - 只在非任务流模式下显示 */}
-        {isThinking && !currentTaskSession && !taskFlowMode && (
+        {/* 保留简单的思考状态显示（兼容性） - 只在非Agent模式下显示 */}
+        {isThinking && !currentAgentSession && !agentMode && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -454,9 +488,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         </Button>
         <Text type="secondary" style={{ marginTop: '12px', display: 'inline-block' }}>
           按 Enter 发送，Shift + Enter 换行
-          {taskFlowMode && (
+          {agentMode && (
             <>
-              {' (任务流模式已开启'}
+              {' (Agent模式已开启'}
               {useTools && ', 工具调用已启用'}
               {')'}
             </>

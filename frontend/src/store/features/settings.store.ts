@@ -29,7 +29,7 @@ export interface UISettings {
 }
 
 export interface ChatSettings {
-  taskFlowMode: boolean;
+  agentMode: boolean;
   useTools: boolean;
   enableMemory: boolean;
   autoSave: boolean;
@@ -84,7 +84,7 @@ const defaultUISettings: UISettings = {
 };
 
 const defaultChatSettings: ChatSettings = {
-  taskFlowMode: false,
+  agentMode: false,
   useTools: false,
   enableMemory: true,
   autoSave: true,

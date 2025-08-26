@@ -4,7 +4,7 @@
 import { db } from '../../../config/database';
 import { registerShellTools } from './shell.tool';
 import { registerGaodeMapsTools } from './gaode-maps.tool';
-import { registerTaskFlowTools } from './task-flow.tool';
+import { registerAgentTools } from './agent.tool';
 import { toolManager } from '../tool.manager';
 import { ToolCategory } from '../tools.types';
 
@@ -23,8 +23,8 @@ export async function initializeBuiltinTools(): Promise<void> {
   // 注册高德地图工具
   registerGaodeMapsTools();
 
-  // 注册任务流工具
-  registerTaskFlowTools();
+  // 注册Agent工具
+  registerAgentTools();
 
   console.log('内置工具初始化完成');
 }

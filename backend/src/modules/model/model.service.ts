@@ -82,11 +82,11 @@ export class ModelService implements IModelService {
       return forceModel;
     }
 
-    // 检查是否在任务流模式下（通过检查全局变量）
-    const isTaskFlowMode = (global as any).taskFlowHandler && (global as any).taskFlowHandler.taskFlowSession;
+    // 检查是否在Agent模式下（通过检查全局变量）
+    const isAgentMode = (global as any).agentService && (global as any).agentService.getActiveSessions().length > 0;
 
-    if (isTaskFlowMode) {
-      // 任务流模式强制使用高级模型
+    if (isAgentMode) {
+      // Agent模式强制使用高级模型
       const provider = this.getModelProvider();
       let advancedModel: string;
 

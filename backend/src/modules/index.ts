@@ -86,6 +86,10 @@ export { userPreferenceService, UserPreferenceService };
 import { AppStartupService } from './app';
 export { AppStartupService };
 
+// 导出Agent模块
+import { agentService, AgentService } from './agent';
+export { agentService, AgentService };
+
 
 
 

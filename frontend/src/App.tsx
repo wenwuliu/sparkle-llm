@@ -8,7 +8,7 @@ import { OperationConfirmProvider } from './contexts/OperationConfirmContext';
 import { SudoPermissionProvider } from './contexts/SudoPermissionContext';
 import { useAppStore, useSettingsStore } from './store';
 import './App.css';
-import './styles/task-flow.css';
+import './styles/agent.css';
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -28,7 +28,7 @@ function App() {
   } = useAppStore();
 
   const {
-    chatSettings: { taskFlowMode, useTools },
+    chatSettings: { agentMode, useTools },
     updateChatSettings
   } = useSettingsStore();
 
@@ -51,14 +51,14 @@ function App() {
     }
   }, [appNotification, clearNotification]);
 
-  // 处理任务流模式自动切换
-  const handleTaskFlowModeChange = (enabled: boolean) => {
-    updateChatSettings({ taskFlowMode: enabled });
+  // 处理Agent模式自动切换
+  const handleAgentModeChange = (enabled: boolean) => {
+    updateChatSettings({ agentMode: enabled });
     if (enabled) {
       showNotification({
         type: 'info',
-        message: '任务流模式已自动开启',
-        description: 'AI检测到复杂任务，已自动切换到任务流模式以提供更好的处理体验。'
+        message: 'Agent模式已自动开启',
+        description: 'AI检测到复杂任务，已自动切换到Agent模式以提供更好的处理体验。'
       });
     }
   };
@@ -80,9 +80,9 @@ function App() {
       case '1':
         return (
           <ChatBox
-            taskFlowMode={taskFlowMode}
+            agentMode={agentMode}
             useTools={useTools}
-            onTaskFlowModeChange={handleTaskFlowModeChange}
+            onAgentModeChange={handleAgentModeChange}
             onUseToolsChange={handleUseToolsChange}
           />
         );
@@ -152,13 +152,13 @@ function App() {
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{ marginRight: '8px' }}>任务流模式</span>
             <Switch
-              checked={taskFlowMode}
-              onChange={(checked) => updateChatSettings({ taskFlowMode: checked })}
+                              checked={agentMode}
+                onChange={(checked) => updateChatSettings({ agentMode: checked })}
               checkedChildren="开启"
               unCheckedChildren="关闭"
               style={{ marginRight: '16px' }}
             />
-            {taskFlowMode && (
+                          {agentMode && (
               <>
                 <span style={{ marginRight: '8px' }}>使用工具</span>
                 <Switch

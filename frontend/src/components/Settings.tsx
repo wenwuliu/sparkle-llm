@@ -32,7 +32,7 @@ interface Settings {
   max_tokens: string;
   enable_memory: string;
   memory_importance_threshold: string;
-  enable_task_flow: string;
+  enable_agent: string;
   history_window_size: string;
 }
 
@@ -244,7 +244,7 @@ const Settings: React.FC<SettingsProps> = () => {
           maxTokens: modelConfig.maxTokens || 2048,
           enableMemory: true,
           memoryImportanceThreshold: 0.5,
-          enableTaskFlow: true,
+          enableAgent: true,
           historyWindowSize: 5,
         }}
       >
@@ -506,7 +506,7 @@ const Settings: React.FC<SettingsProps> = () => {
 
         <Card title="任务流模式" style={{ marginTop: 20 }}>
           <Form.Item
-            name="enableTaskFlow"
+            name="enableAgent"
             label="启用任务流模式"
             valuePropName="checked"
           >

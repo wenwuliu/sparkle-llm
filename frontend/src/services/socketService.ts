@@ -38,49 +38,61 @@ export interface ThinkingRequest {
   parentSessionId?: string;
 }
 
-// 任务流相关类型
-export interface TaskFlowStartEvent {
+// Agent相关类型
+export interface AgentStartEvent {
   sessionId: string;
   task: string;
   goal: string;
-  useTools: boolean;
+  enableReflection: boolean;
+  maxSteps: number;
+  confidenceThreshold: number;
   timestamp: string;
 }
 
-export interface TaskFlowStatusEvent {
+export interface AgentProgressEvent {
+  type: 'step_start' | 'step_complete' | 'step_error' | 'progress_update' | 'status_change';
+  agentId: string;
   sessionId: string;
-  status: 'starting' | 'executing' | 'processing' | 'completed' | 'error' | 'stopped';
+  stepId?: string;
+  status: 'idle' | 'planning' | 'reasoning' | 'acting' | 'observing' | 'reflecting' | 'completed' | 'failed' | 'paused';
+  progress: number;
   message: string;
-  iteration?: number;
-  timestamp: string;
-  error?: string;
+  data?: any;
+  timestamp: number;
 }
 
-export interface TaskFlowToolCallEvent {
+export interface AgentErrorEvent {
   sessionId: string;
-  toolName: string;
-  input: any;
-  output?: any;
-  status: 'executing' | 'completed' | 'error';
-  error?: string;
-  timestamp: string;
+  error: {
+    type: 'tool_error' | 'reasoning_error' | 'planning_error' | 'execution_error' | 'validation_error';
+    message: string;
+    details: string;
+    stepId?: string;
+    recoverable: boolean;
+    suggestions: string[];
+    timestamp: number;
+  };
 }
 
-export interface TaskFlowStep {
-  stepNumber: number;
-  description: string;
-  modelResponse: string;
-  toolCalls?: any[];
-  toolResults?: any[];
-  timestamp: string;
-}
-
-export interface TaskFlowCompleteEvent {
+export interface AgentCompleteEvent {
   sessionId: string;
-  result: string;
-  executionTime: number;
-  toolCallCount: number;
-  steps: TaskFlowStep[];
+  result: {
+    success: boolean;
+    result: any;
+    summary: string;
+    steps: any[];
+    history: any[];
+    executionTime: number;
+    errorCount: number;
+    confidence: number;
+    recommendations: string[];
+    metadata: Record<string, any>;
+  };
+  timestamp: string;
+}
+
+export interface AgentStopEvent {
+  sessionId: string;
   timestamp: string;
 }
 
@@ -136,10 +148,11 @@ class SocketService {
   private thinkingStepOperationListeners: ((operation: ThinkingStepOperation) => void)[] = [];
 
   // 任务流事件监听器
-  private taskFlowStartListeners: ((event: TaskFlowStartEvent) => void)[] = [];
-  private taskFlowStatusListeners: ((event: TaskFlowStatusEvent) => void)[] = [];
-  private taskFlowToolCallListeners: ((event: TaskFlowToolCallEvent) => void)[] = [];
-  private taskFlowCompleteListeners: ((event: TaskFlowCompleteEvent) => void)[] = [];
+  private agentStartListeners: ((event: AgentStartEvent) => void)[] = [];
+  private agentProgressListeners: ((event: AgentProgressEvent) => void)[] = [];
+  private agentErrorListeners: ((event: AgentErrorEvent) => void)[] = [];
+  private agentCompleteListeners: ((event: AgentCompleteEvent) => void)[] = [];
+  private agentStopListeners: ((event: AgentStopEvent) => void)[] = [];
   private memoryListeners: ((memory: Memory) => void)[] = [];
   private errorListeners: ((error: any) => void)[] = [];
   private conversationCreatedListeners: ((conversation: Conversation) => void)[] = [];
@@ -222,20 +235,24 @@ class SocketService {
     });
 
     // 任务流事件监听
-    this.socket.on('task_flow:start', (event: TaskFlowStartEvent) => {
-      this.taskFlowStartListeners.forEach(listener => listener(event));
+    this.socket.on('agent:start', (event: AgentStartEvent) => {
+      this.agentStartListeners.forEach(listener => listener(event));
     });
 
-    this.socket.on('task_flow:status', (event: TaskFlowStatusEvent) => {
-      this.taskFlowStatusListeners.forEach(listener => listener(event));
+    this.socket.on('agent:progress', (event: AgentProgressEvent) => {
+      this.agentProgressListeners.forEach(listener => listener(event));
     });
 
-    this.socket.on('task_flow:tool_call', (event: TaskFlowToolCallEvent) => {
-      this.taskFlowToolCallListeners.forEach(listener => listener(event));
+    this.socket.on('agent:error', (event: AgentErrorEvent) => {
+      this.agentErrorListeners.forEach(listener => listener(event));
     });
 
-    this.socket.on('task_flow:complete', (event: TaskFlowCompleteEvent) => {
-      this.taskFlowCompleteListeners.forEach(listener => listener(event));
+    this.socket.on('agent:complete', (event: AgentCompleteEvent) => {
+      this.agentCompleteListeners.forEach(listener => listener(event));
+    });
+
+    this.socket.on('agent:stop', (event: AgentStopEvent) => {
+      this.agentStopListeners.forEach(listener => listener(event));
     });
 
     this.socket.on('memory:created', (memory: Memory) => {
@@ -293,8 +310,8 @@ class SocketService {
     this.socket.emit('chat:message', content);
   }
 
-  // 发送任务流消息
-  public sendTaskFlowMessage(
+  // 发送Agent消息
+  public sendAgentMessage(
     content: string,
     useTools: boolean = false,
     options?: {
@@ -334,7 +351,7 @@ class SocketService {
       parentSessionId?: string;
     }
   ): void {
-    this.sendTaskFlowMessage(content, useTools, options);
+    this.sendAgentMessage(content, useTools, options);
   }
 
   // 发送用户对思考步骤的回答
@@ -617,48 +634,59 @@ class SocketService {
     }
   }
 
-  // 任务流监听器管理方法
-  public addTaskFlowStartListener(listener: (event: TaskFlowStartEvent) => void): void {
-    this.taskFlowStartListeners.push(listener);
+  // Agent监听器管理方法
+  public addAgentStartListener(listener: (event: AgentStartEvent) => void): void {
+    this.agentStartListeners.push(listener);
   }
 
-  public removeTaskFlowStartListener(listener: (event: TaskFlowStartEvent) => void): void {
-    const index = this.taskFlowStartListeners.indexOf(listener);
+  public removeAgentStartListener(listener: (event: AgentStartEvent) => void): void {
+    const index = this.agentStartListeners.indexOf(listener);
     if (index > -1) {
-      this.taskFlowStartListeners.splice(index, 1);
+      this.agentStartListeners.splice(index, 1);
     }
   }
 
-  public addTaskFlowStatusListener(listener: (event: TaskFlowStatusEvent) => void): void {
-    this.taskFlowStatusListeners.push(listener);
+  public addAgentProgressListener(listener: (event: AgentProgressEvent) => void): void {
+    this.agentProgressListeners.push(listener);
   }
 
-  public removeTaskFlowStatusListener(listener: (event: TaskFlowStatusEvent) => void): void {
-    const index = this.taskFlowStatusListeners.indexOf(listener);
+  public removeAgentProgressListener(listener: (event: AgentProgressEvent) => void): void {
+    const index = this.agentProgressListeners.indexOf(listener);
     if (index > -1) {
-      this.taskFlowStatusListeners.splice(index, 1);
+      this.agentProgressListeners.splice(index, 1);
     }
   }
 
-  public addTaskFlowToolCallListener(listener: (event: TaskFlowToolCallEvent) => void): void {
-    this.taskFlowToolCallListeners.push(listener);
+  public addAgentErrorListener(listener: (event: AgentErrorEvent) => void): void {
+    this.agentErrorListeners.push(listener);
   }
 
-  public removeTaskFlowToolCallListener(listener: (event: TaskFlowToolCallEvent) => void): void {
-    const index = this.taskFlowToolCallListeners.indexOf(listener);
+  public removeAgentErrorListener(listener: (event: AgentErrorEvent) => void): void {
+    const index = this.agentErrorListeners.indexOf(listener);
     if (index > -1) {
-      this.taskFlowToolCallListeners.splice(index, 1);
+      this.agentErrorListeners.splice(index, 1);
     }
   }
 
-  public addTaskFlowCompleteListener(listener: (event: TaskFlowCompleteEvent) => void): void {
-    this.taskFlowCompleteListeners.push(listener);
+  public addAgentCompleteListener(listener: (event: AgentCompleteEvent) => void): void {
+    this.agentCompleteListeners.push(listener);
   }
 
-  public removeTaskFlowCompleteListener(listener: (event: TaskFlowCompleteEvent) => void): void {
-    const index = this.taskFlowCompleteListeners.indexOf(listener);
+  public removeAgentCompleteListener(listener: (event: AgentCompleteEvent) => void): void {
+    const index = this.agentCompleteListeners.indexOf(listener);
     if (index > -1) {
-      this.taskFlowCompleteListeners.splice(index, 1);
+      this.agentCompleteListeners.splice(index, 1);
+    }
+  }
+
+  public addAgentStopListener(listener: (event: AgentStopEvent) => void): void {
+    this.agentStopListeners.push(listener);
+  }
+
+  public removeAgentStopListener(listener: (event: AgentStopEvent) => void): void {
+    const index = this.agentStopListeners.indexOf(listener);
+    if (index > -1) {
+      this.agentStopListeners.splice(index, 1);
     }
   }
 }

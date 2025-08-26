@@ -12,7 +12,7 @@ import { modelService } from '../../model';
 import { Message } from '../../model/interfaces/model-provider.interface';
 import { conversationService } from '../../conversation';
 import { memoryService, smartMemoryRetrievalService } from '../../memory';
-import { taskFlowHandler } from './index';
+
 
 
 /**
@@ -25,10 +25,10 @@ export class ChatHandler implements SocketHandler {
    * @param io SocketIO服务器实例
    */
   handle(socket: Socket, _io: SocketIOServer): void {
-    // 监听任务流启动事件（兼容thinking:start）
+    // 监听Agent启动事件（兼容thinking:start）
     socket.on(SocketEventType.THINKING_START, async (request: ThinkingRequest) => {
       try {
-        console.log('收到任务流启动请求:', request);
+        console.log('收到Agent启动请求:', request);
 
         // 获取或创建活动对话
         let activeConversation = await conversationService.getActiveConversation();
@@ -37,41 +37,38 @@ export class ChatHandler implements SocketHandler {
           console.log('已创建新对话:', activeConversation.id);
         }
 
-        // 生成会话ID
-        const sessionId = `task_flow_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+        // 启动Agent任务
+        const { agentService } = require('../../agent');
+        const sessionId = await agentService.startAgentTask(
+          request.message,
+          `完成用户请求：${request.message}`,
+          activeConversation.id,
+          {
+            onProgress: (event) => {
+              socket.emit(SocketEventType.AGENT_PROGRESS, event);
+            },
+            onError: (error) => {
+              socket.emit(SocketEventType.AGENT_ERROR, { error });
+            },
+            onComplete: (result) => {
+              socket.emit(SocketEventType.AGENT_COMPLETE, { result });
+            }
+          }
+        );
 
-        // 创建任务流会话
-        taskFlowHandler.taskFlowSession = {
-          sessionId,
-          task: request.message,
-          goal: `完成用户请求：${request.message}`,
-          useTools: request.useTools,
-          conversationId: activeConversation.id.toString(),
-          isActive: true,
-          startTime: Date.now(),
-          toolCallHistory: [],
-          steps: []
-        };
-
-        // 发送任务流开始事件
-        const startEvent = {
+        // 发送Agent开始事件
+        socket.emit(SocketEventType.AGENT_START, {
           sessionId,
           task: request.message,
           goal: `完成用户请求：${request.message}`,
           useTools: request.useTools,
           timestamp: new Date().toISOString()
-        };
-
-        console.log('发送任务流开始事件:', startEvent);
-        socket.emit(SocketEventType.TASK_FLOW_START, startEvent);
-
-        // 开始执行任务流
-        await taskFlowHandler.executeTaskFlow(socket);
+        });
 
       } catch (error) {
-        console.error('处理任务流启动失败:', error);
+        console.error('处理Agent启动失败:', error);
         socket.emit(SocketEventType.ERROR, {
-          message: '启动任务流失败',
+          message: '启动Agent失败',
           details: error instanceof Error ? error.message : String(error)
         });
       }

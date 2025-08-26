@@ -1,0 +1,274 @@
+/* Agent样式文件 */
+/* 替换原有的task-flow.css */
+
+.agent-display {
+  margin: 16px 0;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+}
+
+.agent-session {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.agent-session.running {
+  border-color: #1890ff;
+  background: #f0f5ff;
+}
+
+.agent-session.completed {
+  border-color: #52c41a;
+  background: #f6ffed;
+}
+
+.agent-session.failed {
+  border-color: #ff4d4f;
+  background: #fff2f0;
+}
+
+.agent-session.stopped {
+  border-color: #faad14;
+  background: #fffbe6;
+}
+
+.agent-progress {
+  margin: 12px 0;
+}
+
+.agent-steps {
+  margin: 12px 0;
+}
+
+.agent-step {
+  padding: 8px;
+  margin: 4px 0;
+  border-radius: 4px;
+  border-left: 3px solid #d9d9d9;
+}
+
+.agent-step.pending {
+  background: #fafafa;
+  border-left-color: #d9d9d9;
+}
+
+.agent-step.running {
+  background: #f0f5ff;
+  border-left-color: #1890ff;
+}
+
+.agent-step.completed {
+  background: #f6ffed;
+  border-left-color: #52c41a;
+}
+
+.agent-step.failed {
+  background: #fff2f0;
+  border-left-color: #ff4d4f;
+}
+
+.agent-step.skipped {
+  background: #fffbe6;
+  border-left-color: #faad14;
+}
+
+.agent-thoughts {
+  margin: 8px 0;
+  padding: 8px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.agent-thought {
+  margin: 4px 0;
+  padding: 4px;
+  background: #fff;
+  border-radius: 2px;
+  border-left: 2px solid #722ed1;
+}
+
+.agent-result {
+  margin: 12px 0;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.agent-error {
+  margin: 12px 0;
+  padding: 12px;
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 6px;
+  color: #ff4d4f;
+}
+
+.agent-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.agent-status-icon {
+  font-size: 16px;
+}
+
+.agent-status-text {
+  font-weight: 500;
+}
+
+.agent-meta {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.agent-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.agent-history {
+  margin-top: 16px;
+}
+
+.agent-history-item {
+  padding: 8px;
+  margin: 4px 0;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.agent-history-item:hover {
+  background: #f5f5f5;
+  border-color: #d9d9d9;
+}
+
+.agent-history-item.active {
+  background: #f0f5ff;
+  border-color: #1890ff;
+}
+
+.agent-stats {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0;
+  padding: 8px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.agent-stat {
+  text-align: center;
+}
+
+.agent-stat-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.agent-stat-value {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.agent-mode-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.agent-mode-indicator .anticon {
+  color: #52c41a;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .agent-display {
+    margin: 8px 0;
+    padding: 12px;
+  }
+  
+  .agent-meta {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .agent-stats {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .agent-actions {
+    flex-direction: column;
+  }
+}
+
+/* 动画效果 */
+.agent-step {
+  transition: all 0.3s ease;
+}
+
+.agent-step:hover {
+  transform: translateX(2px);
+}
+
+.agent-progress .ant-progress-bg {
+  transition: width 0.3s ease;
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .agent-display {
+    background: #1f1f1f;
+    border-color: #434343;
+  }
+  
+  .agent-session {
+    background: #262626;
+    border-color: #434343;
+  }
+  
+  .agent-thoughts {
+    background: #262626;
+  }
+  
+  .agent-thought {
+    background: #1f1f1f;
+  }
+  
+  .agent-result {
+    background: #262626;
+  }
+  
+  .agent-history-item {
+    background: #262626;
+    border-color: #434343;
+  }
+  
+  .agent-history-item:hover {
+    background: #1f1f1f;
+  }
+  
+  .agent-stats {
+    background: #262626;
+  }
+}
