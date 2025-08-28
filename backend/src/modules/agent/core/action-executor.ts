@@ -98,7 +98,7 @@ export class ActionExecutor {
       system_prompt: '你是一个专业的行动执行器，擅长工具调用和参数准备。请严格按照JSON格式输出执行计划。'
     });
 
-    return this.parseExecutionPlan(result.content);
+    return this.parseExecutionPlan(result);
   }
 
   /**

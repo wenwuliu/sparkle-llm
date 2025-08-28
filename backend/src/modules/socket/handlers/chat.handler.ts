@@ -25,6 +25,9 @@ export class ChatHandler implements SocketHandler {
    * @param io SocketIO服务器实例
    */
   handle(socket: Socket, _io: SocketIOServer): void {
+    // 设置全局Socket实例，供Agent工具使用
+    (global as any).activeSocket = socket;
+    
     // 监听Agent启动事件（兼容thinking:start）
     socket.on(SocketEventType.THINKING_START, async (request: ThinkingRequest) => {
       try {
@@ -42,7 +45,7 @@ export class ChatHandler implements SocketHandler {
         const sessionId = await agentService.startAgentTask(
           request.message,
           `完成用户请求：${request.message}`,
-          activeConversation.id,
+          activeConversation.id.toString(),
           {
             onProgress: (event) => {
               socket.emit(SocketEventType.AGENT_PROGRESS, event);

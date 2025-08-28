@@ -64,7 +64,7 @@ export class AgentService {
       const sessionId = uuidv4();
 
       // 获取对话上下文
-      const conversation = await conversationService.getConversationById(conversationId);
+      const conversation = await conversationService.getConversationById(parseInt(conversationId));
       if (!conversation) {
         throw new Error('对话不存在');
       }
@@ -218,14 +218,9 @@ export class AgentService {
 
       // 保存到对话
       await conversationService.addMessageToConversation(
-        session.conversationId,
+        parseInt(session.conversationId),
         resultMessage,
-        'ai',
-        undefined,
-        {
-          agentResult: result,
-          sessionId: session.id
-        }
+        'ai'
       );
 
       console.log(`[Agent服务] 结果已保存到对话: ${session.conversationId}`);

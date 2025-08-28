@@ -110,7 +110,7 @@ export function registerAgentTools(): void {
         const sessionId = await agentService.startAgentTask(
           task,
           goal,
-          activeConversation.id,
+          activeConversation.id.toString(),
           {
             onProgress: (event) => {
               // 发送进度事件

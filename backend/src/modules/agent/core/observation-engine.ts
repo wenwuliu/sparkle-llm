@@ -94,7 +94,7 @@ export class ObservationEngine {
       system_prompt: '你是一个专业的观察分析器，擅长从结果中提取洞察和发现模式。请严格按照JSON格式输出分析结果。'
     });
 
-    return result.content;
+    return result;
   }
 
   /**

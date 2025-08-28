@@ -100,7 +100,7 @@ export class ReasoningEngine {
       system_prompt: '你是一个专业的推理引擎，擅长逻辑分析和决策制定。请严格按照JSON格式输出结果。'
     });
 
-    return result.content;
+    return result;
   }
 
   /**

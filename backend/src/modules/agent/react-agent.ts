@@ -229,7 +229,7 @@ export class ReActAgent {
       system_prompt: '你是一个专业的任务规划专家，擅长任务分解和步骤设计。请严格按照JSON格式输出分析结果。'
     });
 
-    return result.content;
+    return result;
   }
 
   /**
@@ -414,7 +414,7 @@ export class ReActAgent {
           type: 'step_complete',
           agentId: this.state.id,
           stepId: step.id,
-          status: step.status,
+          status: this.state.status,
           progress: ((currentStepIndex + 1) / this.state.plan.length) * 100,
           message: `步骤 ${currentStepIndex + 1} 执行完成`,
           data: { step },
@@ -525,7 +525,7 @@ export class ReActAgent {
       });
 
       // 记录反思结果
-      this.state.metadata.reflection = response.content;
+      this.state.metadata.reflection = response;
 
       console.log('[ReAct Agent] 反思完成');
 

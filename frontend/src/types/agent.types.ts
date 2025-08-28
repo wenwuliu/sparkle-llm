@@ -194,9 +194,10 @@ export interface AgentStartEvent {
   sessionId: string;
   task: string;
   goal: string;
-  enableReflection: boolean;
-  maxSteps: number;
-  confidenceThreshold: number;
+  useTools?: boolean;
+  enableReflection?: boolean;
+  maxSteps?: number;
+  confidenceThreshold?: number;
   timestamp: string;
 }
 
