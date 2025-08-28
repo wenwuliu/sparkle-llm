@@ -54,6 +54,7 @@ export class ChatHandler implements SocketHandler {
               socket.emit(SocketEventType.AGENT_ERROR, { error });
             },
             onComplete: (result) => {
+              console.log('[ChatHandler] Agent完成回调被调用，发送完成事件:', { result });
               socket.emit(SocketEventType.AGENT_COMPLETE, { result });
             }
           }

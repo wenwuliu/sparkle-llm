@@ -153,6 +153,13 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     // 监听Agent开始事件
     const agentStartListener = (event: any) => {
       console.log('收到Agent开始事件:', event);
+      console.log('Agent开始事件详情:', {
+        sessionId: event.sessionId,
+        task: event.task,
+        goal: event.goal,
+        useTools: event.useTools
+      });
+      
       const session: AgentSession = {
         id: event.sessionId,
         task: event.task,
@@ -160,7 +167,13 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         status: 'running',
         startTime: Date.now()
       };
-      startAgentSession(session);
+      
+      try {
+        startAgentSession(session);
+        console.log('Agent会话创建成功，ID:', event.sessionId);
+      } catch (error) {
+        console.error('Agent会话创建失败:', error);
+      }
 
       // 自动切换到Agent模式
       if (!agentMode && onAgentModeChange) {
@@ -200,10 +213,30 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     // 监听Agent完成
     const agentCompleteListener = (event: any) => {
       console.log('收到Agent完成事件:', event);
-      completeAgentSession(event.sessionId, event.result);
+      console.log('Agent完成事件详情:', {
+        sessionId: event.sessionId,
+        result: event.result,
+        success: event.result?.success,
+        summary: event.result?.summary
+      });
+      
+      try {
+        completeAgentSession(event.sessionId, event.result);
+        console.log('Agent会话状态更新成功');
+      } catch (error) {
+        console.error('Agent会话状态更新失败:', error);
+      }
+      
       // 重置思考状态
       setIsThinking(false);
       setIsLoading(false);
+      
+      // 显示完成通知
+      if (event.result?.success) {
+        console.log('Agent任务成功完成');
+      } else {
+        console.log('Agent任务执行失败');
+      }
     };
     socketService.addAgentCompleteListener(agentCompleteListener);
 

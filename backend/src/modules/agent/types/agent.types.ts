@@ -88,6 +88,7 @@ export interface ExecutionResult {
   success: boolean;
   result: any;
   summary: string;
+  taskConclusion?: any;  // 新增：任务结论总结
   steps: TaskStep[];
   history: ActionHistory[];
   executionTime: number;

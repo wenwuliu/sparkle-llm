@@ -1,15 +1,15 @@
 import React from 'react';
-import { Card, Typography, Space, Tag, List, Collapse } from 'antd';
-import {
-  RobotOutlined,
+import { Card, Typography, Space, Tag, List, Collapse, Progress } from 'antd';
+import { 
+  RobotOutlined, 
+  BulbOutlined, 
+  ClockCircleOutlined, 
   CheckCircleOutlined,
-  CloseCircleOutlined,
-  ClockCircleOutlined,
-  BulbOutlined
+  CloseCircleOutlined
 } from '@ant-design/icons';
 import { ExecutionResult } from '../types/agent.types';
 
-const { Text, Paragraph, Title } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
 
 interface AgentResultProps {
@@ -86,6 +86,153 @@ const AgentResult: React.FC<AgentResultProps> = ({ result, style }) => {
           {result.summary}
         </div>
       </div>
+
+      {/* 任务结论总结 */}
+      {result.taskConclusion && (
+        <div style={{ marginBottom: '16px' }}>
+          <Title level={5}>
+            <CheckCircleOutlined style={{ marginRight: '8px', color: '#52c41a' }} />
+            任务结论总结
+          </Title>
+          
+          {/* 任务完成情况 */}
+          <div style={{ marginBottom: '12px' }}>
+            <Space size="large">
+              <div>
+                <Text strong>完成状态:</Text>
+                <br />
+                <Tag color={result.taskConclusion.taskCompletion?.isCompleted ? 'green' : 'red'}>
+                  {result.taskConclusion.taskCompletion?.isCompleted ? '已完成' : '未完成'}
+                </Tag>
+              </div>
+              <div>
+                <Text strong>完成度:</Text>
+                <br />
+                <Text type="secondary">
+                  {(result.taskConclusion.taskCompletion?.completionRate * 100).toFixed(1)}%
+                </Text>
+              </div>
+              <div>
+                <Text strong>成功等级:</Text>
+                <br />
+                <Tag color={
+                  result.taskConclusion.taskCompletion?.successLevel === 'high' ? 'green' :
+                  result.taskConclusion.taskCompletion?.successLevel === 'medium' ? 'orange' : 'red'
+                }>
+                  {result.taskConclusion.taskCompletion?.successLevel === 'high' ? '高' :
+                   result.taskConclusion.taskCompletion?.successLevel === 'medium' ? '中' : '低'}
+                </Tag>
+              </div>
+            </Space>
+          </div>
+
+          {/* 用户需求回应 */}
+          {result.taskConclusion.userResponse && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text strong>需求回应:</Text>
+              <div style={{ 
+                padding: '8px', 
+                backgroundColor: '#f0f8ff', 
+                borderRadius: '4px',
+                marginTop: '4px'
+              }}>
+                {result.taskConclusion.userResponse}
+              </div>
+            </div>
+          )}
+
+          {/* 主要成果 */}
+          {result.taskConclusion.mainResults && result.taskConclusion.mainResults.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text strong>主要成果:</Text>
+              <List
+                size="small"
+                dataSource={result.taskConclusion.mainResults}
+                renderItem={(resultItem, index) => (
+                  <List.Item style={{ padding: '4px 0' }}>
+                    <Space>
+                      <Text type="secondary">{index + 1}.</Text>
+                      <Text>{String(resultItem)}</Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            </div>
+          )}
+
+          {/* 重要发现 */}
+          {result.taskConclusion.keyFindings && result.taskConclusion.keyFindings.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text strong>重要发现:</Text>
+              <List
+                size="small"
+                dataSource={result.taskConclusion.keyFindings}
+                renderItem={(finding, index) => (
+                  <List.Item style={{ padding: '4px 0' }}>
+                    <Space>
+                      <Text type="secondary">{index + 1}.</Text>
+                      <Text>{String(finding)}</Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            </div>
+          )}
+
+          {/* 结果解释 */}
+          {result.taskConclusion.resultExplanation && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text strong>结果解释:</Text>
+              <div style={{ 
+                padding: '8px', 
+                backgroundColor: '#fff7e6', 
+                borderRadius: '4px',
+                marginTop: '4px',
+                fontSize: '14px'
+              }}>
+                {result.taskConclusion.resultExplanation}
+              </div>
+            </div>
+          )}
+
+          {/* 后续步骤 */}
+          {result.taskConclusion.nextSteps && result.taskConclusion.nextSteps.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text strong>后续步骤:</Text>
+              <List
+                size="small"
+                dataSource={result.taskConclusion.nextSteps}
+                renderItem={(step, index) => (
+                  <List.Item style={{ padding: '4px 0' }}>
+                    <Space>
+                      <Text type="secondary">{index + 1}.</Text>
+                      <Text>{String(step)}</Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            </div>
+          )}
+
+          {/* 最终结论 */}
+          {result.taskConclusion.conclusion && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text strong>最终结论:</Text>
+              <div style={{ 
+                padding: '12px', 
+                backgroundColor: '#f6ffed', 
+                borderRadius: '6px',
+                marginTop: '4px',
+                border: '1px solid #b7eb8f',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                {result.taskConclusion.conclusion}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 执行统计 */}
       <div style={{ marginBottom: '16px' }}>

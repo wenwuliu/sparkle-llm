@@ -162,7 +162,15 @@ export class AgentService {
 
       // 调用完成回调
       if (onComplete) {
-        onComplete(result);
+        console.log(`[Agent服务] 调用完成回调，会话ID: ${session.id}`);
+        try {
+          onComplete(result);
+          console.log(`[Agent服务] 完成回调调用成功`);
+        } catch (error) {
+          console.error(`[Agent服务] 完成回调调用失败:`, error);
+        }
+      } else {
+        console.warn(`[Agent服务] 没有设置完成回调`);
       }
 
       console.log(`[Agent服务] Agent任务执行完成，会话ID: ${session.id}`);
@@ -179,6 +187,24 @@ export class AgentService {
         suggestions: ['检查任务描述', '验证工具可用性', '重试执行'],
         timestamp: Date.now()
       };
+
+      // 如果有错误回调，也要调用
+      if (onComplete) {
+        onComplete({
+          success: false,
+          result: null,
+          summary: '任务执行失败',
+          steps: [],
+          history: [],
+          executionTime: 0,
+          errorCount: 1,
+          confidence: 0,
+          recommendations: ['检查任务描述', '验证工具可用性', '重试执行'],
+          metadata: {
+            error: session.error
+          }
+        });
+      }
     }
   }
 

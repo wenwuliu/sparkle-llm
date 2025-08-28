@@ -381,4 +381,89 @@ ${history.map(h => `- ${h.description} (${h.success ? '成功' : '失败'}) - ${
 }
 \`\`\``;
   }
+
+  /**
+   * 构建任务结论总结提示词
+   */
+  static buildTaskConclusionPrompt(
+    task: string,
+    goal: string,
+    executionResult: any,
+    userRequirements: string
+  ): string {
+    return `你是一个专业的任务总结专家。请根据任务执行结果，为用户生成一个完整的任务结论总结。
+
+## 任务信息
+**用户需求**: ${userRequirements}
+**任务描述**: ${task}
+**任务目标**: ${goal}
+
+## 执行结果
+**执行摘要**: ${executionResult.summary}
+**执行统计**: 
+- 总步骤数: ${executionResult.steps.length}
+- 完成步骤: ${executionResult.steps.filter(s => s.status === 'completed').length}
+- 失败步骤: ${executionResult.steps.filter(s => s.status === 'failed').length}
+- 执行时间: ${(executionResult.executionTime / 1000).toFixed(2)}秒
+- 置信度: ${(executionResult.confidence * 100).toFixed(1)}%
+
+**执行历史**: ${JSON.stringify(executionResult.history, null, 2)}
+
+## 总结要求
+请从以下角度生成任务结论：
+
+1. **任务完成情况**
+   - 任务是否成功完成？
+   - 完成程度如何？
+   - 是否达到了用户的目标？
+
+2. **主要成果**
+   - 获得了什么结果？
+   - 解决了什么问题？
+   - 有什么重要发现？
+
+3. **用户需求回应**
+   - 如何回应用户的原始需求？
+   - 提供了什么解决方案？
+   - 是否满足了用户的期望？
+
+4. **结果解释**
+   - 结果的含义是什么？
+   - 为什么会产生这样的结果？
+   - 结果的可信度如何？
+
+5. **后续建议**
+   - 用户接下来可以做什么？
+   - 有什么改进建议？
+   - 需要注意什么？
+
+请提供结构化的任务结论：
+
+\`\`\`json
+{
+  "taskCompletion": {
+    "isCompleted": true,
+    "completionRate": 0.95,
+    "successLevel": "high|medium|low"
+  },
+  "mainResults": [
+    "主要成果1",
+    "主要成果2"
+  ],
+  "userResponse": "针对用户需求的直接回应",
+  "resultExplanation": "对结果的详细解释",
+  "keyFindings": [
+    "重要发现1",
+    "重要发现2"
+  ],
+  "nextSteps": [
+    "后续步骤1",
+    "后续步骤2"
+  ],
+  "conclusion": "最终结论总结"
+}
+\`\`\`
+
+请确保结论简洁明了，直接回应用户需求，并提供有价值的见解。`;
+  }
 }

@@ -85,7 +85,7 @@ export class ReActAgent {
       const result = await this.executeReActLoop();
 
       // 3. 生成最终结果
-      const executionResult = this.generateFinalResult(result);
+      const executionResult = await this.generateFinalResult(result);
 
       console.log(`[ReAct Agent] 任务执行完成，共执行 ${this.state.history.length} 个步骤`);
 
@@ -537,7 +537,7 @@ export class ReActAgent {
   /**
    * 生成最终结果
    */
-  private generateFinalResult(finalObservation: any): ExecutionResult {
+  private async generateFinalResult(finalObservation: any): Promise<ExecutionResult> {
     if (!this.state) throw new Error('Agent状态未初始化');
 
     const executionTime = Date.now() - this.state.startTime;
@@ -550,10 +550,14 @@ export class ReActAgent {
     // 生成建议
     const recommendations = this.generateRecommendations();
 
+    // 生成任务结论总结
+    const taskConclusion = await this.generateTaskConclusion(summary, recommendations);
+
     return {
       success,
       result: finalObservation,
       summary,
+      taskConclusion,  // 新增：任务结论总结
       steps: this.state.plan,
       history: this.state.history,
       executionTime,
@@ -568,6 +572,88 @@ export class ReActAgent {
         timestamp: Date.now()
       }
     };
+  }
+
+  /**
+   * 生成任务结论总结
+   */
+  private async generateTaskConclusion(summary: string, recommendations: string[]): Promise<any> {
+    try {
+      console.log('[ReAct Agent] 开始生成任务结论总结');
+
+      // 构建执行结果对象
+      const executionResult = {
+        summary,
+        steps: this.state!.plan,
+        history: this.state!.history,
+        executionTime: Date.now() - this.state!.startTime,
+        confidence: this.state!.confidence,
+        recommendations
+      };
+
+      // 构建任务结论提示词
+      const prompt = AgentPromptBuilder.buildTaskConclusionPrompt(
+        this.state!.task,
+        this.state!.goal,
+        executionResult,
+        this.state!.task  // 用户需求就是任务描述
+      );
+
+      // 调用模型生成结论
+      const response = await modelService.generateText(prompt, {
+        temperature: 0.3,
+        max_tokens: 2048,
+        system_prompt: '你是一个专业的任务总结专家，擅长生成清晰、准确的任务结论。请严格按照JSON格式输出。'
+      });
+
+      // 解析结论结果
+      const conclusion = this.parseConclusionResponse(response);
+
+      console.log('[ReAct Agent] 任务结论总结生成完成');
+
+      return conclusion;
+
+    } catch (error) {
+      console.error('[ReAct Agent] 生成任务结论总结失败:', error);
+      
+      // 返回默认结论
+      const completedSteps = this.state!.plan.filter(s => s.status === 'completed').length;
+      return {
+        taskCompletion: {
+          isCompleted: this.state!.status === 'completed',
+          completionRate: completedSteps / this.state!.plan.length,
+          successLevel: this.state!.status === 'completed' ? 'high' : 'low'
+        },
+        mainResults: ['任务执行完成'],
+        userResponse: `已完成任务：${this.state!.task}`,
+        resultExplanation: summary,
+        keyFindings: [],
+        nextSteps: recommendations,
+        conclusion: summary
+      };
+    }
+  }
+
+  /**
+   * 解析结论响应
+   */
+  private parseConclusionResponse(response: string): any {
+    try {
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+      const jsonStr = jsonMatch ? jsonMatch[1] : response;
+      
+      const parsed = JSON.parse(jsonStr);
+      
+      // 验证必要字段
+      if (!parsed.taskCompletion || !parsed.userResponse || !parsed.conclusion) {
+        throw new Error('结论响应格式不完整');
+      }
+
+      return parsed;
+    } catch (error) {
+      console.error('[ReAct Agent] 解析结论响应失败:', error);
+      throw new Error(`解析结论响应失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
   }
 
   /**
