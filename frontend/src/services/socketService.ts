@@ -43,6 +43,7 @@ export interface AgentStartEvent {
   sessionId: string;
   task: string;
   goal: string;
+  useTools: boolean;
   enableReflection: boolean;
   maxSteps: number;
   confidenceThreshold: number;
@@ -188,7 +189,7 @@ class SocketService {
     this.isInitialized = true;
 
     this.socket.on('connect', () => {
-      // 连接成功，无需日志
+      console.log('Socket.IO连接成功');
     });
 
     this.socket.on('connect_error', (error) => {
@@ -315,10 +316,9 @@ class SocketService {
     content: string,
     useTools: boolean = false,
     options?: {
-      level?: number;
-      trigger?: 'user' | 'auto';
-      reason?: string;
-      parentSessionId?: string;
+      enableReflection?: boolean;
+      maxSteps?: number;
+      confidenceThreshold?: number;
     }
   ): void {
     // 确保Socket已初始化
@@ -331,13 +331,17 @@ class SocketService {
       return;
     }
 
-    const request: ThinkingRequest = {
+    const request = {
       message: content,
       useTools,
-      ...options
+      enableReflection: options?.enableReflection ?? true,
+      maxSteps: options?.maxSteps ?? 10,
+      confidenceThreshold: options?.confidenceThreshold ?? 0.7
     };
 
-    this.socket.emit('thinking:start', request);
+    console.log('发送Agent消息:', request);
+    console.log('Socket连接状态:', this.socket?.connected);
+    this.socket.emit('agent:start', request);
   }
 
   // 兼容性方法（保留旧的方法名）
@@ -351,7 +355,13 @@ class SocketService {
       parentSessionId?: string;
     }
   ): void {
-    this.sendAgentMessage(content, useTools, options);
+    // 转换为Agent消息格式
+    const agentOptions = {
+      enableReflection: true,
+      maxSteps: 10,
+      confidenceThreshold: 0.7
+    };
+    this.sendAgentMessage(content, useTools, agentOptions);
   }
 
   // 发送用户对思考步骤的回答

@@ -30,6 +30,7 @@ interface AgentSession {
   status: 'running' | 'completed' | 'failed' | 'stopped';
   result?: ExecutionResult;
   error?: AgentError;
+  onProgress?: (event: ProgressEvent) => void; // 新增属性
 }
 
 /**
@@ -93,17 +94,18 @@ export class AgentService {
         goal,
         conversationId,
         startTime: Date.now(),
-        status: 'running'
+        status: 'running',
+        onProgress: options.onProgress // 将传入的回调函数赋值给会话对象
       };
 
       this.sessions.set(sessionId, session);
 
       // 设置进度回调
-      const progressCallback = (event: ProgressEvent) => {
-        if (options.onProgress) {
-          options.onProgress(event);
-        }
-      };
+      // const progressCallback = (event: ProgressEvent) => {
+      //   if (options.onProgress) {
+      //     options.onProgress(event);
+      //   }
+      // };
 
       const errorCallback = (error: AgentError) => {
         session.status = 'failed';
@@ -217,8 +219,14 @@ export class AgentService {
 
     console.log(`[Agent服务] 进度事件 [${sessionId}]: ${event.message}`);
 
-    // 这里可以添加更多进度处理逻辑
-    // 比如发送WebSocket事件、更新UI等
+    // 调用传入的进度回调函数
+    if (session.onProgress) {
+      try {
+        session.onProgress(event);
+      } catch (error) {
+        console.error(`[Agent服务] 调用进度回调失败:`, error);
+      }
+    }
   }
 
   /**

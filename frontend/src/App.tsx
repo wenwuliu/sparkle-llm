@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Layout, Menu, Switch, Typography, notification, App as AntdApp } from 'antd';
+import { Layout, Menu, Typography, notification, App as AntdApp } from 'antd';
 import { MessageOutlined, SettingOutlined, BulbOutlined } from '@ant-design/icons';
 import ChatBox from './components/ChatBox';
 import MemoryManager from './components/MemoryManager';
@@ -8,7 +8,6 @@ import { OperationConfirmProvider } from './contexts/OperationConfirmContext';
 import { SudoPermissionProvider } from './contexts/SudoPermissionContext';
 import { useAppStore, useSettingsStore } from './store';
 import './App.css';
-import './styles/agent.css';
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -51,26 +50,26 @@ function App() {
     }
   }, [appNotification, clearNotification]);
 
-  // 处理Agent模式自动切换
+  // 处理Agent模式切换
   const handleAgentModeChange = (enabled: boolean) => {
     updateChatSettings({ agentMode: enabled });
     if (enabled) {
       showNotification({
         type: 'info',
-        message: 'Agent模式已自动开启',
-        description: 'AI检测到复杂任务，已自动切换到Agent模式以提供更好的处理体验。'
+        message: 'Agent模式已开启',
+        description: 'AI将使用任务流模式处理复杂任务'
       });
     }
   };
 
-  // 处理工具使用自动切换
+  // 处理工具使用切换
   const handleUseToolsChange = (enabled: boolean) => {
     updateChatSettings({ useTools: enabled });
     if (enabled) {
       showNotification({
         type: 'info',
-        message: '工具使用已自动开启',
-        description: '任务需要使用工具来完成，已自动开启工具使用选项。'
+        message: '工具使用已开启',
+        description: 'AI可以使用工具来完成复杂任务'
       });
     }
   };
@@ -149,27 +148,6 @@ function App() {
       <Layout>
         <Header style={{ padding: '0 16px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Title level={4} style={{ margin: 0 }}>Sparkle LLM 平台</Title>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{ marginRight: '8px' }}>任务流模式</span>
-            <Switch
-                              checked={agentMode}
-                onChange={(checked) => updateChatSettings({ agentMode: checked })}
-              checkedChildren="开启"
-              unCheckedChildren="关闭"
-              style={{ marginRight: '16px' }}
-            />
-                          {agentMode && (
-              <>
-                <span style={{ marginRight: '8px' }}>使用工具</span>
-                <Switch
-                  checked={useTools}
-                  onChange={(checked) => updateChatSettings({ useTools: checked })}
-                  checkedChildren="开启"
-                  unCheckedChildren="关闭"
-                />
-              </>
-            )}
-          </div>
         </Header>
         <Content style={{ margin: '24px 16px', padding: 24, background: '#fff', minHeight: 280 }}>
           {renderContent()}

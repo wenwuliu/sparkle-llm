@@ -12,8 +12,7 @@ import { modelService } from '../../model';
 import { Message } from '../../model/interfaces/model-provider.interface';
 import { conversationService } from '../../conversation';
 import { memoryService, smartMemoryRetrievalService } from '../../memory';
-
-
+import { agentService } from '../../agent';
 
 /**
  * 聊天消息处理器
@@ -30,52 +29,14 @@ export class ChatHandler implements SocketHandler {
     
     // 监听Agent启动事件（兼容thinking:start）
     socket.on(SocketEventType.THINKING_START, async (request: ThinkingRequest) => {
-      try {
-        console.log('收到Agent启动请求:', request);
+      console.log('收到THINKING_START事件:', request);
+      await this.handleAgentStart(socket, request);
+    });
 
-        // 获取或创建活动对话
-        let activeConversation = await conversationService.getActiveConversation();
-        if (!activeConversation) {
-          activeConversation = await conversationService.createConversation('新对话');
-          console.log('已创建新对话:', activeConversation.id);
-        }
-
-        // 启动Agent任务
-        const { agentService } = require('../../agent');
-        const sessionId = await agentService.startAgentTask(
-          request.message,
-          `完成用户请求：${request.message}`,
-          activeConversation.id.toString(),
-          {
-            onProgress: (event) => {
-              socket.emit(SocketEventType.AGENT_PROGRESS, event);
-            },
-            onError: (error) => {
-              socket.emit(SocketEventType.AGENT_ERROR, { error });
-            },
-            onComplete: (result) => {
-              console.log('[ChatHandler] Agent完成回调被调用，发送完成事件:', { result });
-              socket.emit(SocketEventType.AGENT_COMPLETE, { result });
-            }
-          }
-        );
-
-        // 发送Agent开始事件
-        socket.emit(SocketEventType.AGENT_START, {
-          sessionId,
-          task: request.message,
-          goal: `完成用户请求：${request.message}`,
-          useTools: request.useTools,
-          timestamp: new Date().toISOString()
-        });
-
-      } catch (error) {
-        console.error('处理Agent启动失败:', error);
-        socket.emit(SocketEventType.ERROR, {
-          message: '启动Agent失败',
-          details: error instanceof Error ? error.message : String(error)
-        });
-      }
+    // 监听Agent启动事件
+    socket.on(SocketEventType.AGENT_START, async (request: any) => {
+      console.log('收到AGENT_START事件:', request);
+      await this.handleAgentStart(socket, request);
     });
 
     socket.on(SocketEventType.CHAT_MESSAGE, async (message: string) => {
@@ -114,8 +75,6 @@ export class ChatHandler implements SocketHandler {
         // 发送思考开始事件
         socket.emit(SocketEventType.CHAT_THINKING_START);
 
-
-
         // 使用智能记忆检索服务判断是否需要创建记忆
         const containsMemoryInstruction = smartMemoryRetrievalService.shouldCreateMemory(message);
 
@@ -123,8 +82,6 @@ export class ChatHandler implements SocketHandler {
         try {
           // 创建消息数组
           const messages: Message[] = [];
-          
-
           
           messages.push({
             role: 'user',
@@ -176,8 +133,6 @@ export class ChatHandler implements SocketHandler {
             socket.emit(SocketEventType.CONVERSATION_UPDATED, updatedConversation);
           }
 
-
-
           // 如果消息包含记忆指令关键词，尝试生成记忆
           if (containsMemoryInstruction) {
             try {
@@ -214,5 +169,149 @@ export class ChatHandler implements SocketHandler {
         });
       }
     });
+
+    // 监听思考步骤事件
+    socket.on(SocketEventType.THINKING_STEPS, async (steps: any[]) => {
+      socket.emit(SocketEventType.THINKING_STEPS, steps);
+    });
+
+    // 监听思考步骤操作更新事件
+    socket.on(SocketEventType.THINKING_STEP_OPERATION, async (operation: any) => {
+      socket.emit(SocketEventType.THINKING_STEP_OPERATION, operation);
+    });
+
+    // 监听用户对思考步骤的回答
+    socket.on(SocketEventType.THINKING_USER_ANSWER, async (data: any) => {
+      try {
+        console.log('收到用户对思考步骤的回答:', data);
+        // 这里可以处理用户的回答逻辑
+        socket.emit(SocketEventType.THINKING_USER_ANSWER, data);
+      } catch (error) {
+        console.error('处理用户回答失败:', error);
+        socket.emit(SocketEventType.ERROR, {
+          message: '处理用户回答失败',
+          details: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+
+    // 监听记忆创建事件
+    socket.on(SocketEventType.MEMORY_CREATE, async (data: any) => {
+      try {
+        console.log('收到记忆创建请求:', data);
+        const memory = await memoryService.createMemory(
+          data.content,
+          data.keywords,
+          data.context,
+          data.importance,
+          data.memory_type,
+          data.memory_subtype,
+          data.is_pinned,
+          data.importance_level
+        );
+        socket.emit(SocketEventType.MEMORY_CREATED, memory);
+      } catch (error) {
+        console.error('创建记忆失败:', error);
+        socket.emit(SocketEventType.ERROR, {
+          message: '创建记忆失败',
+          details: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+
+    // 监听对话创建事件
+    socket.on(SocketEventType.CONVERSATION_CREATE, async (data: any) => {
+      try {
+        console.log('收到对话创建请求:', data);
+        const conversation = await conversationService.createConversation(data.title || '新对话');
+        socket.emit(SocketEventType.CONVERSATION_CREATED, conversation);
+      } catch (error) {
+        console.error('创建对话失败:', error);
+        socket.emit(SocketEventType.ERROR, {
+          message: '创建对话失败',
+          details: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+
+    // 监听对话激活事件
+    socket.on(SocketEventType.CONVERSATION_ACTIVATE, async (conversationId: number) => {
+      try {
+        console.log('收到对话激活请求:', conversationId);
+        await conversationService.setActiveConversation(conversationId);
+        const conversation = await conversationService.getConversationById(conversationId);
+        if (conversation) {
+          socket.emit(SocketEventType.CONVERSATION_ACTIVATED, conversation);
+        }
+      } catch (error) {
+        console.error('激活对话失败:', error);
+        socket.emit(SocketEventType.ERROR, {
+          message: '激活对话失败',
+          details: error instanceof Error ? error.message : String(error)
+        });
+      }
+    });
+  }
+
+  /**
+   * 处理Agent启动
+   * @param socket Socket实例
+   * @param request 请求数据
+   */
+  private async handleAgentStart(socket: Socket, request: any): Promise<void> {
+    try {
+      console.log('收到Agent启动请求:', request);
+
+      // 获取或创建活动对话
+      let activeConversation = await conversationService.getActiveConversation();
+      if (!activeConversation) {
+        activeConversation = await conversationService.createConversation('新对话');
+        console.log('已创建新对话:', activeConversation.id);
+      }
+
+      // 启动Agent任务
+      const sessionId = await agentService.startAgentTask(
+        request.message,
+        `完成用户请求：${request.message}`,
+        activeConversation.id.toString(),
+        {
+          onProgress: (event) => {
+            // 确保事件包含sessionId
+            const progressEvent = {
+              ...event,
+              sessionId: sessionId
+            };
+            socket.emit(SocketEventType.AGENT_PROGRESS, progressEvent);
+          },
+          onError: (error) => {
+            socket.emit(SocketEventType.AGENT_ERROR, { error });
+          },
+          onComplete: (result) => {
+            console.log('[ChatHandler] Agent完成回调被调用，发送完成事件:', { result });
+            socket.emit(SocketEventType.AGENT_COMPLETE, { 
+              sessionId: sessionId,
+              result: result,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      );
+
+      // 发送Agent开始事件
+      socket.emit(SocketEventType.AGENT_START, {
+        sessionId,
+        task: request.message,
+        goal: `完成用户请求：${request.message}`,
+        useTools: request.useTools,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('处理Agent启动失败:', error);
+      socket.emit(SocketEventType.ERROR, {
+        message: '启动Agent失败',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 }

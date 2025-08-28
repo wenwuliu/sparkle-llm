@@ -1,6 +1,6 @@
 /**
- * 前端Agent类型定义
- * 与后端Agent系统保持一致
+ * Agent系统类型定义
+ * 基于ReAct框架的智能任务执行系统
  */
 
 // 基础类型
@@ -88,7 +88,7 @@ export interface ExecutionResult {
   success: boolean;
   result: any;
   summary: string;
-  taskConclusion?: any;  // 新增：任务结论总结
+  taskConclusion?: any;  // 任务结论总结
   steps: TaskStep[];
   history: ActionHistory[];
   executionTime: number;
@@ -102,6 +102,7 @@ export interface ExecutionResult {
 export interface ProgressEvent {
   type: 'step_start' | 'step_complete' | 'step_error' | 'progress_update' | 'status_change';
   agentId: string;
+  sessionId: string; // 添加sessionId字段
   stepId?: string;
   status: AgentStatus;
   progress: number;
@@ -178,16 +179,16 @@ export interface AgentConfig {
   metadata?: Record<string, any>;
 }
 
-// Agent会话信息
+// Agent会话
 export interface AgentSession {
   id: string;
   task: string;
   goal: string;
   status: 'running' | 'completed' | 'failed' | 'stopped';
   startTime: number;
+  agentState?: AgentState;
   result?: ExecutionResult;
   error?: AgentError;
-  agentState?: AgentState;
 }
 
 // Socket事件类型
@@ -195,15 +196,20 @@ export interface AgentStartEvent {
   sessionId: string;
   task: string;
   goal: string;
-  useTools?: boolean;
-  enableReflection?: boolean;
-  maxSteps?: number;
-  confidenceThreshold?: number;
+  useTools: boolean;
   timestamp: string;
 }
 
-export interface AgentProgressEvent extends ProgressEvent {
+export interface AgentProgressEvent {
+  type: 'step_start' | 'step_complete' | 'step_error' | 'progress_update' | 'status_change';
+  agentId: string;
   sessionId: string;
+  stepId?: string;
+  status: AgentStatus;
+  progress: number;
+  message: string;
+  data?: any;
+  timestamp: number;
 }
 
 export interface AgentErrorEvent {
@@ -221,3 +227,18 @@ export interface AgentStopEvent {
   sessionId: string;
   timestamp: string;
 }
+
+// 默认配置
+export const DEFAULT_AGENT_CONFIG: AgentConfig = {
+  maxSteps: 20,
+  maxRetries: 3,
+  timeout: 300000, // 5分钟
+  enableReflection: true,
+  enableMemory: true,
+  enableProgressTracking: true,
+  reasoningModel: 'advanced',
+  actionModel: 'advanced',
+  reflectionModel: 'advanced',
+  confidenceThreshold: 0.7,
+  metadata: {}
+};

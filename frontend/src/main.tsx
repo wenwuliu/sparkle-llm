@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './assets/styles/index.css'
 import './styles/markdown-chat.css'
 import './styles/agent.css'
+
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

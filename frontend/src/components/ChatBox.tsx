@@ -1,24 +1,30 @@
 import { useState, useRef, useEffect } from 'react';
-import { Input, Button, Avatar, Spin, Typography, Drawer } from 'antd';
+import { Input, Button, Avatar, Spin, Typography, Drawer, Switch } from 'antd';
 import { SendOutlined, RobotOutlined, HistoryOutlined, PlusOutlined } from '@ant-design/icons';
-import { socketService, ChatMessage } from '../services/socketService';
+import { socketService } from '../services/socketService';
+import { FrontendMessage as ChatMessage } from '../types/conversation';
+import { 
+  AgentStartEvent, 
+  AgentProgressEvent, 
+  AgentErrorEvent, 
+  AgentCompleteEvent, 
+  AgentStopEvent,
+  AgentSession 
+} from '../types/agent.types';
 
 import { useChatStore } from '../store';
 import { useAgentStore } from '../store/features/agent.store';
 import ConversationHistory from './ConversationHistory';
 import MessageItem from './MessageItem';
-import TaskExecutionPanel from './TaskExecutionPanel';
 import AgentDisplay from './AgentDisplay';
-import { ConversationMessage, FrontendMessage as Message } from '../types/conversation';
-import { AgentSession } from '../types/agent.types';
+import AgentResult from './AgentResult';
 import { convertToFrontendMessage } from '../utils/conversationUtils';
-import '../styles/agent.css';
 
 const { TextArea } = Input;
 const { Text } = Typography;
 
 interface ChatBoxProps {
-  agentMode: boolean;
+  agentMode?: boolean;
   useTools?: boolean;
   onAgentModeChange?: (enabled: boolean) => void;
   onUseToolsChange?: (enabled: boolean) => void;
@@ -28,18 +34,17 @@ interface ChatBoxProps {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const ChatBox: React.FC<ChatBoxProps> = ({
-  agentMode,
+  agentMode = false,
   useTools = false,
   onAgentModeChange,
   onUseToolsChange
 }) => {
   // 保留本地状态（渐进式重构）
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
   const [activeConversation, setActiveConversation] = useState<any>(null);
-  const [taskPanelVisible, setTaskPanelVisible] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 使用ChatStore的功能
@@ -50,12 +55,14 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   // 使用AgentStore的功能
   const {
-    currentAgentSession,
-    startAgentSession,
-    updateAgentSession,
-    completeAgentSession,
-    failAgentSession,
-    clearAgentSession
+    startSession,
+    updateProgress,
+    completeSession,
+    failSession,
+    stopSession,
+    clearSession,
+    getCurrentSession,
+    setAgentMode: setAgentModeStore
   } = useAgentStore();
 
   // 初始化Socket连接和注册事件监听器
@@ -65,7 +72,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
     // 监听消息
     const messageUnsubscribe = socketService.onMessage((message: ChatMessage) => {
-      const newMessage: Message = {
+      const newMessage: ChatMessage = {
         id: message.id || Date.now().toString(),
         content: message.content,
         sender: message.sender,
@@ -102,7 +109,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
     // 监听工具调用中状态
     const toolCallingUnsubscribe = socketService.onToolCalling((message: ChatMessage) => {
-      const newMessage: Message = {
+      const newMessage: ChatMessage = {
         id: `tool-calling-${Date.now()}`,
         content: message.content,
         sender: message.sender,
@@ -136,7 +143,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           return updatedMessages;
         } else {
           // 如果没有找到，添加新消息
-          const newMessage: Message = {
+          const newMessage: ChatMessage = {
             id: `tool-called-${Date.now()}`,
             content: "正在生成最终结果，请稍候...",
             sender: message.sender,
@@ -151,100 +158,94 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     });
 
     // 监听Agent开始事件
-    const agentStartListener = (event: any) => {
+    const agentStartListener = (event: AgentStartEvent) => {
       console.log('收到Agent开始事件:', event);
-      console.log('Agent开始事件详情:', {
-        sessionId: event.sessionId,
-        task: event.task,
-        goal: event.goal,
-        useTools: event.useTools
-      });
       
       const session: AgentSession = {
         id: event.sessionId,
         task: event.task,
         goal: event.goal,
         status: 'running',
-        startTime: Date.now()
+        startTime: Date.now(),
+        agentState: {
+          id: event.sessionId,
+          task: event.task,
+          goal: event.goal,
+          status: 'idle',
+          currentStep: 0,
+          totalSteps: 0,
+          plan: [],
+          context: {
+            task: event.task,
+            goal: event.goal,
+            constraints: [],
+            availableTools: [],
+            memory: [],
+            conversationHistory: [],
+            userPreferences: {},
+            environment: {}
+          },
+          history: [],
+          startTime: Date.now(),
+          lastUpdateTime: Date.now(),
+          progress: 0,
+          confidence: 0,
+          errorCount: 0,
+          retryCount: 0,
+          metadata: {}
+        }
       };
       
-      try {
-        startAgentSession(session);
-        console.log('Agent会话创建成功，ID:', event.sessionId);
-      } catch (error) {
-        console.error('Agent会话创建失败:', error);
-      }
+      startSession(session);
 
       // 自动切换到Agent模式
       if (!agentMode && onAgentModeChange) {
-        console.log('自动切换到Agent模式');
         onAgentModeChange(true);
       }
+      setAgentModeStore(true);
 
       // 如果Agent使用工具，自动开启工具选项
       if (event.useTools && !useTools && onUseToolsChange) {
-        console.log('自动开启工具选项');
         onUseToolsChange(true);
       }
 
-      // Agent开始后，清除旧的思考状态，因为现在使用Agent状态
+      // Agent开始后，清除旧的思考状态
       setIsThinking(false);
       setIsLoading(false);
     };
     socketService.addAgentStartListener(agentStartListener);
 
     // 监听Agent进度更新
-    const agentProgressListener = (event: any) => {
+    const agentProgressListener = (event: AgentProgressEvent) => {
       console.log('收到Agent进度更新:', event);
-      updateAgentSession(event.sessionId, event);
+      updateProgress(event.sessionId, event);
     };
     socketService.addAgentProgressListener(agentProgressListener);
 
     // 监听Agent错误
-    const agentErrorListener = (event: any) => {
+    const agentErrorListener = (event: AgentErrorEvent) => {
       console.log('收到Agent错误事件:', event);
-      failAgentSession(event.sessionId, event.error);
-      // 重置思考状态
+      failSession(event.sessionId, event.error);
       setIsThinking(false);
       setIsLoading(false);
     };
     socketService.addAgentErrorListener(agentErrorListener);
 
     // 监听Agent完成
-    const agentCompleteListener = (event: any) => {
+    const agentCompleteListener = (event: AgentCompleteEvent) => {
       console.log('收到Agent完成事件:', event);
-      console.log('Agent完成事件详情:', {
-        sessionId: event.sessionId,
-        result: event.result,
-        success: event.result?.success,
-        summary: event.result?.summary
-      });
-      
-      try {
-        completeAgentSession(event.sessionId, event.result);
-        console.log('Agent会话状态更新成功');
-      } catch (error) {
-        console.error('Agent会话状态更新失败:', error);
-      }
-      
-      // 重置思考状态
+      console.log('调用completeSession前，当前会话状态:', getCurrentSession());
+      completeSession(event.sessionId, event.result);
+      console.log('调用completeSession后，当前会话状态:', getCurrentSession());
       setIsThinking(false);
       setIsLoading(false);
-      
-      // 显示完成通知
-      if (event.result?.success) {
-        console.log('Agent任务成功完成');
-      } else {
-        console.log('Agent任务执行失败');
-      }
     };
     socketService.addAgentCompleteListener(agentCompleteListener);
 
     // 监听Agent停止
-    const agentStopListener = (event: any) => {
+    const agentStopListener = (event: AgentStopEvent) => {
       console.log('收到Agent停止事件:', event);
-      clearAgentSession(event.sessionId);
-      // 重置思考状态
+      stopSession(event.sessionId);
       setIsThinking(false);
       setIsLoading(false);
     };
@@ -260,31 +261,17 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     const conversationCreatedUnsubscribe = socketService.onConversationCreated((conversation) => {
       setActiveConversation(conversation);
       setMessages([]);
-      // 清除Agent状态，避免在新对话中显示上一个对话的Agent
-      if (currentAgentSession) {
-        clearAgentSession(currentAgentSession.id);
-      }
     });
 
     // 监听对话激活
     const conversationActivatedUnsubscribe = socketService.onConversationActivated((conversation) => {
       setActiveConversation(conversation);
       loadConversationMessages(conversation.id);
-      // 清除Agent状态，避免在切换对话时显示上一个对话的Agent
-      if (currentAgentSession) {
-        clearAgentSession(currentAgentSession.id);
-      }
     });
 
     // 监听对话更新
     const conversationUpdatedUnsubscribe = socketService.onConversationUpdated((conversation) => {
       setActiveConversation(conversation);
-    });
-
-    // 监听任务进度事件
-    const taskProgressUnsubscribe = socketService.onTaskProgress((_) => {
-      // 当收到任务进度事件时，显示任务执行面板
-      setTaskPanelVisible(true);
     });
 
     // 监听思考开始事件（保留兼容性）
@@ -309,7 +296,6 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       conversationCreatedUnsubscribe();
       conversationActivatedUnsubscribe();
       conversationUpdatedUnsubscribe();
-      taskProgressUnsubscribe();
       thinkingStartUnsubscribe();
       thinkingEndUnsubscribe();
 
@@ -372,7 +358,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
       if (data.success) {
         // 转换消息格式，使用统一的转换函数
-        const conversationMessages = (data.data.messages || []).map((msg: ConversationMessage) =>
+        const conversationMessages = (data.data.messages || []).map((msg: any) =>
           convertToFrontendMessage(msg)
         );
 
@@ -397,17 +383,17 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
 
+    console.log('发送消息:', { inputValue, agentMode, useTools });
     setIsLoading(true);
     setIsThinking(true);
 
     if (agentMode) {
-      // 发送Agent消息，包含是否使用工具的选项
+      // 发送Agent消息
+      console.log('使用Agent模式发送消息');
       socketService.sendAgentMessage(inputValue, useTools);
-      if (currentAgentSession) {
-        clearAgentSession(currentAgentSession.id);
-      }
     } else {
       // 发送普通消息
+      console.log('使用普通模式发送消息');
       socketService.sendMessage(inputValue);
     }
 
@@ -418,20 +404,17 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const handleNewConversation = () => {
     socketService.createConversation();
     setHistoryDrawerVisible(false);
-    if (currentAgentSession) {
-      clearAgentSession(currentAgentSession.id);
-    }
   };
 
   // 选择对话
   const handleSelectConversation = (conversationId: number) => {
     socketService.activateConversation(conversationId);
     setHistoryDrawerVisible(false);
-    // 清除Agent状态，避免在切换对话时显示上一个对话的Agent
-    if (currentAgentSession) {
-      clearAgentSession(currentAgentSession.id);
-    }
   };
+
+  const currentSession = getCurrentSession();
+
+  console.log('ChatBox渲染 - agentMode:', agentMode, 'currentSession:', currentSession);
 
   return (
     <div className="chat-container">
@@ -441,7 +424,34 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             <Text strong style={{ fontSize: '16px' }}>{activeConversation.title}</Text>
           )}
         </div>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Text>Agent模式</Text>
+            <Switch
+              checked={agentMode}
+              onChange={(checked) => {
+                if (onAgentModeChange) {
+                  onAgentModeChange(checked);
+                }
+                setAgentModeStore(checked);
+              }}
+              size="small"
+            />
+          </div>
+          {agentMode && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Text>使用工具</Text>
+              <Switch
+                checked={useTools}
+                onChange={(checked) => {
+                  if (onUseToolsChange) {
+                    onUseToolsChange(checked);
+                  }
+                }}
+                size="small"
+              />
+            </div>
+          )}
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -465,10 +475,15 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         ))}
 
         {/* Agent显示 */}
-        <AgentDisplay visible={agentMode || !!currentAgentSession} />
+        <AgentDisplay visible={agentMode || !!currentSession} />
+
+        {/* Agent结果 */}
+        {currentSession?.result && (
+          <AgentResult result={currentSession.result} />
+        )}
 
         {/* 保留简单的思考状态显示（兼容性） - 只在非Agent模式下显示 */}
-        {isThinking && !currentAgentSession && !agentMode && (
+        {isThinking && !currentSession && !agentMode && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -541,12 +556,6 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       >
         <ConversationHistory onSelectConversation={handleSelectConversation} />
       </Drawer>
-
-      {/* 任务执行面板 */}
-      <TaskExecutionPanel
-        visible={taskPanelVisible}
-        onClose={() => setTaskPanelVisible(false)}
-      />
     </div>
   );
 };

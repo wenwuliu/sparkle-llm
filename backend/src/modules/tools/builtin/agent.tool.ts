@@ -115,8 +115,8 @@ export function registerAgentTools(): void {
             onProgress: (event) => {
               // 发送进度事件
               globalSocket.emit(SocketEventType.AGENT_PROGRESS, {
-                sessionId: event.agentId,
-                ...event
+                ...event,
+                sessionId: sessionId // 使用正确的sessionId
               });
             },
             onError: (error) => {
@@ -129,7 +129,7 @@ export function registerAgentTools(): void {
             onComplete: (result) => {
               // 发送完成事件
               globalSocket.emit(SocketEventType.AGENT_COMPLETE, {
-                sessionId: result.metadata?.agentId,
+                sessionId: sessionId, // 使用正确的sessionId
                 result: result,
                 timestamp: new Date().toISOString()
               });

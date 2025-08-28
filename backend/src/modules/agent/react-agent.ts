@@ -455,6 +455,23 @@ export class ReActAgent {
       }
     }
 
+    // 所有步骤执行完成，设置状态为completed
+    if (this.state) {
+      this.state.status = 'completed';
+      this.state.progress = 100;
+      this.updateProgress();
+      
+      // 发送完成状态事件
+      this.emitProgress({
+        type: 'status_change',
+        agentId: this.state.id,
+        status: 'completed',
+        progress: 100,
+        message: '任务执行完成',
+        timestamp: Date.now()
+      });
+    }
+
     return finalResult;
   }
 

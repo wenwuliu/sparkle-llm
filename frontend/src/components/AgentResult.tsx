@@ -17,40 +17,26 @@ interface AgentResultProps {
   style?: React.CSSProperties;
 }
 
-/**
- * Agent结果组件
- * 显示Agent执行的最终结果
- */
 const AgentResult: React.FC<AgentResultProps> = ({ result, style }) => {
   if (!result) {
     return null;
   }
 
-  const formatDuration = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    
-    if (minutes > 0) {
-      return `${minutes}分${remainingSeconds}秒`;
-    }
-    return `${seconds}秒`;
+  const getSuccessColor = () => {
+    return result.success ? '#52c41a' : '#ff4d4f';
   };
 
   const getSuccessIcon = () => {
-    return result.success ? (
-      <CheckCircleOutlined style={{ color: '#52c41a' }} />
-    ) : (
-      <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-    );
-  };
-
-  const getSuccessColor = () => {
-    return result.success ? 'green' : 'red';
+    return result.success ? <CheckCircleOutlined /> : <CloseCircleOutlined />;
   };
 
   const getSuccessText = () => {
     return result.success ? '执行成功' : '执行失败';
+  };
+
+  const formatDuration = (duration: number) => {
+    if (duration < 1000) return `${duration}ms`;
+    return `${(duration / 1000).toFixed(1)}s`;
   };
 
   return (
@@ -309,79 +295,26 @@ const AgentResult: React.FC<AgentResultProps> = ({ result, style }) => {
                 }
               >
                 <div style={{ padding: '8px 0' }}>
-                  <div style={{ marginBottom: '8px' }}>
-                    <Text strong>类型:</Text>
-                    <Tag color="blue" style={{ marginLeft: '8px' }}>
-                      {history.type}
-                    </Tag>
-                  </div>
-                  
-                  {history.input && (
-                    <div style={{ marginBottom: '8px' }}>
-                      <Text strong>输入:</Text>
-                      <div style={{ 
-                        padding: '8px', 
-                        backgroundColor: '#f9f9f9', 
-                        borderRadius: '4px',
-                        marginTop: '4px',
-                        fontSize: '12px'
-                      }}>
-                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                          {JSON.stringify(history.input, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-
-                  {history.output && (
-                    <div style={{ marginBottom: '8px' }}>
-                      <Text strong>输出:</Text>
-                      <div style={{ 
-                        padding: '8px', 
-                        backgroundColor: '#f9f9f9', 
-                        borderRadius: '4px',
-                        marginTop: '4px',
-                        fontSize: '12px'
-                      }}>
-                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                          {JSON.stringify(history.output, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-
+                  <Paragraph style={{ margin: '0 0 8px 0' }}>
+                    <Text strong>类型:</Text> {history.type}
+                  </Paragraph>
                   {history.error && (
-                    <div style={{ marginBottom: '8px' }}>
-                      <Text strong style={{ color: '#ff4d4f' }}>错误:</Text>
-                      <Paragraph style={{ 
-                        margin: '4px 0', 
-                        color: '#ff4d4f',
-                        backgroundColor: '#fff2f0',
-                        padding: '8px',
-                        borderRadius: '4px',
-                        border: '1px solid #ffccc7'
-                      }}>
-                        {history.error}
-                      </Paragraph>
-                    </div>
+                    <Paragraph style={{ margin: '0 0 8px 0', color: '#ff4d4f' }}>
+                      <Text strong>错误:</Text> {history.error}
+                    </Paragraph>
                   )}
-
                   {history.thoughts && history.thoughts.length > 0 && (
-                    <div style={{ marginBottom: '8px' }}>
+                    <div>
                       <Text strong>思考过程:</Text>
                       <List
                         size="small"
                         dataSource={history.thoughts}
-                        renderItem={(thought) => (
-                          <List.Item style={{ padding: '2px 0' }}>
+                        renderItem={(thought, thoughtIndex) => (
+                          <List.Item style={{ padding: '4px 0' }}>
                             <div>
-                              <Space style={{ marginBottom: '2px' }}>
-                                <Tag color="purple">{thought.type}</Tag>
-                                <Text type="secondary" style={{ fontSize: '11px' }}>
-                                  置信度: {(thought.confidence * 100).toFixed(1)}%
-                                </Text>
-                              </Space>
-                              <Text style={{ fontSize: '12px' }}>{thought.content}</Text>
+                              <Text type="secondary">{thoughtIndex + 1}. [{thought.type}]</Text>
+                              <br />
+                              <Text>{thought.content}</Text>
                             </div>
                           </List.Item>
                         )}
@@ -392,23 +325,6 @@ const AgentResult: React.FC<AgentResultProps> = ({ result, style }) => {
               </Panel>
             ))}
           </Collapse>
-        </div>
-      )}
-
-      {/* 元数据 */}
-      {result.metadata && Object.keys(result.metadata).length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <Title level={5}>元数据</Title>
-          <div style={{ 
-            padding: '8px', 
-            backgroundColor: '#f9f9f9', 
-            borderRadius: '4px',
-            fontSize: '12px'
-          }}>
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify(result.metadata, null, 2)}
-            </pre>
-          </div>
         </div>
       )}
     </Card>

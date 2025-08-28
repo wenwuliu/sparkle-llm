@@ -1,325 +1,281 @@
 import React from 'react';
-import { Card, Typography, Space, Tag, Progress, Button, Collapse } from 'antd';
-import {
-  RobotOutlined,
-  CheckCircleOutlined,
+import { Card, Typography, Space, Tag, Progress, Collapse, List, Button, Alert } from 'antd';
+import { 
+  RobotOutlined, 
+  PlayCircleOutlined, 
+  CheckCircleOutlined, 
   CloseCircleOutlined,
-  LoadingOutlined,
-  PauseCircleOutlined,
-  EyeOutlined
+  ClockCircleOutlined,
+  BulbOutlined,
+  ToolOutlined,
+  EyeOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
+import { AgentSession, AgentStatus, StepStatus } from '../types/agent.types';
 import { useAgentStore } from '../store/features/agent.store';
-import AgentSteps from './AgentSteps';
-import AgentResult from './AgentResult';
 
-const { Text, Paragraph } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { Panel } = Collapse;
 
 interface AgentDisplayProps {
   visible: boolean;
-  style?: React.CSSProperties;
 }
 
-/**
- * Agent显示组件
- * 显示当前Agent的执行状态和历史
- */
-const AgentDisplay: React.FC<AgentDisplayProps> = ({ visible, style }) => {
+const AgentDisplay: React.FC<AgentDisplayProps> = ({ visible }) => {
   const { 
-    currentAgentSession, 
-    agentSessions, 
-    agentMode,
-    stopAgentSession,
-    clearAgentSession,
-    getAgentStats
+    getCurrentSession, 
+    getActiveSessions, 
+    stopSession, 
+    clearSession 
   } = useAgentStore();
 
-  // 只在有活跃会话时记录日志
-  if (currentAgentSession) {
-    console.log('AgentDisplay渲染:', { visible, currentAgentSession, agentSessions });
-  }
+  const currentSession = getCurrentSession();
+  const activeSessions = getActiveSessions();
 
-  if (!visible) {
+  console.log('AgentDisplay渲染 - visible:', visible, 'currentSession:', currentSession, 'activeSessions:', activeSessions);
+  console.log('当前会话状态:', currentSession?.status, 'agentState状态:', currentSession?.agentState?.status);
+
+  if (!visible || (!currentSession && activeSessions.length === 0)) {
     return null;
   }
 
-  const stats = getAgentStats();
-
-  const formatDuration = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    
-    if (minutes > 0) {
-      return `${minutes}分${remainingSeconds}秒`;
+  const getStatusColor = (status: AgentStatus | 'running' | 'completed' | 'failed' | 'stopped') => {
+    switch (status) {
+      case 'running':
+      case 'reasoning':
+      case 'acting':
+      case 'observing':
+        return 'processing';
+      case 'completed':
+        return 'success';
+      case 'failed':
+        return 'error';
+      case 'stopped':
+        return 'default';
+      case 'planning':
+      case 'reflecting':
+        return 'warning';
+      default:
+        return 'default';
     }
-    return `${remainingSeconds}秒`;
+  };
+
+  const getStatusIcon = (status: AgentStatus | 'running' | 'completed' | 'failed' | 'stopped') => {
+    switch (status) {
+      case 'running':
+      case 'reasoning':
+      case 'acting':
+      case 'observing':
+        return <SyncOutlined spin />;
+      case 'completed':
+        return <CheckCircleOutlined />;
+      case 'failed':
+        return <CloseCircleOutlined />;
+      case 'stopped':
+        return <ClockCircleOutlined />;
+      case 'planning':
+        return <BulbOutlined />;
+      case 'reflecting':
+        return <EyeOutlined />;
+      default:
+        return <RobotOutlined />;
+    }
+  };
+
+  const getStepStatusColor = (status: StepStatus) => {
+    switch (status) {
+      case 'running':
+        return 'processing';
+      case 'completed':
+        return 'success';
+      case 'failed':
+        return 'error';
+      case 'skipped':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatDuration = (duration: number) => {
+    if (duration < 1000) return `${duration}ms`;
+    return `${(duration / 1000).toFixed(1)}s`;
   };
 
   const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'running': return 'blue';
-      case 'completed': return 'green';
-      case 'failed': return 'red';
-      case 'stopped': return 'orange';
-      default: return 'default';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'running': return <LoadingOutlined />;
-      case 'completed': return <CheckCircleOutlined />;
-      case 'failed': return <CloseCircleOutlined />;
-      case 'stopped': return <PauseCircleOutlined />;
-      default: return <LoadingOutlined />;
-    }
+    return new Date(timestamp).toLocaleTimeString();
   };
 
   const handleStopSession = (sessionId: string) => {
-    stopAgentSession(sessionId);
+    stopSession(sessionId);
   };
 
   const handleClearSession = (sessionId: string) => {
-    clearAgentSession(sessionId);
+    clearSession(sessionId);
   };
 
   return (
-    <div style={{ margin: '16px 0', ...style }}>
+    <div style={{ marginBottom: '16px' }}>
       {/* 当前Agent会话 */}
-      {currentAgentSession && (
+      {currentSession && (
         <Card
           size="small"
           title={
             <Space>
-              <RobotOutlined style={{ color: '#1890ff' }} />
-              <Text strong>当前Agent任务</Text>
-              <Tag color={getStatusColor(currentAgentSession.status)}>
-                {getStatusIcon(currentAgentSession.status)}
-                {currentAgentSession.status === 'running' ? '执行中' :
-                 currentAgentSession.status === 'completed' ? '已完成' :
-                 currentAgentSession.status === 'failed' ? '失败' :
-                 currentAgentSession.status === 'stopped' ? '已停止' : '未知'}
+              <RobotOutlined />
+              <Text strong>
+                {currentSession.status === 'completed' ? 'Agent任务已完成' :
+                 currentSession.status === 'failed' ? 'Agent任务失败' :
+                 currentSession.status === 'stopped' ? 'Agent任务已停止' :
+                 'Agent任务执行中'}
+              </Text>
+              <Tag color={getStatusColor(currentSession.status)}>
+                {getStatusIcon(currentSession.status)}
+                {currentSession.status}
               </Tag>
             </Space>
           }
-          style={{
-            backgroundColor: '#f0f5ff',
-            border: '2px solid #1890ff',
-            borderRadius: '8px',
-            marginBottom: '16px'
-          }}
           extra={
             <Space>
-              {currentAgentSession.status === 'running' && (
+              {currentSession.status === 'running' && (
                 <Button 
                   size="small" 
                   danger 
-                  onClick={() => handleStopSession(currentAgentSession.id)}
+                  onClick={() => handleStopSession(currentSession.id)}
                 >
                   停止
                 </Button>
               )}
               <Button 
                 size="small" 
-                onClick={() => handleClearSession(currentAgentSession.id)}
+                onClick={() => handleClearSession(currentSession.id)}
               >
                 清除
               </Button>
             </Space>
           }
+          style={{ marginBottom: '12px' }}
         >
+          {/* 任务信息 */}
           <div style={{ marginBottom: '12px' }}>
-            <Text strong style={{ color: '#1890ff' }}>任务ID:</Text>
-            <Paragraph style={{ margin: '4px 0 0 0', fontSize: '14px' }}>
-              {currentAgentSession.id}
-            </Paragraph>
+            <Text strong>任务:</Text> {currentSession.task}
+            <br />
+            <Text strong>目标:</Text> {currentSession.goal}
+            <br />
+            <Text strong>开始时间:</Text> {formatTimestamp(currentSession.startTime)}
           </div>
 
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong style={{ color: '#1890ff' }}>任务描述:</Text>
-            <Paragraph style={{ margin: '4px 0 0 0', fontSize: '14px' }}>
-              {currentAgentSession.task}
-            </Paragraph>
-          </div>
-
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong style={{ color: '#1890ff' }}>目标:</Text>
-            <Paragraph style={{ margin: '4px 0 0 0', fontSize: '14px' }}>
-              {currentAgentSession.goal}
-            </Paragraph>
-          </div>
-
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong style={{ color: '#1890ff' }}>开始时间:</Text>
-            <Paragraph style={{ margin: '4px 0 0 0', fontSize: '14px' }}>
-              {formatTimestamp(currentAgentSession.startTime)}
-            </Paragraph>
-          </div>
-
-          {currentAgentSession.agentState && (
+          {/* 进度条 */}
+          {currentSession.agentState && (
             <div style={{ marginBottom: '12px' }}>
-              <Text strong style={{ color: '#1890ff' }}>执行进度:</Text>
               <Progress 
-                percent={currentAgentSession.agentState.progress} 
-                status={currentAgentSession.status === 'failed' ? 'exception' : 'active'}
-                style={{ marginTop: '8px' }}
+                percent={Math.round(currentSession.agentState.progress)} 
+                status={currentSession.agentState.status === 'failed' ? 'exception' : 'active'}
+                size="small"
               />
               <Text type="secondary" style={{ fontSize: '12px' }}>
-                步骤 {currentAgentSession.agentState.currentStep} / {currentAgentSession.agentState.totalSteps}
+                步骤 {currentSession.agentState.currentStep} / {currentSession.agentState.totalSteps}
               </Text>
             </div>
           )}
 
           {/* 执行步骤 */}
-          {currentAgentSession.agentState && (
-            <AgentSteps steps={currentAgentSession.agentState.plan} />
-          )}
-
-          {/* 执行结果 */}
-          {currentAgentSession.result && (
-            <AgentResult result={currentAgentSession.result} />
+          {currentSession.agentState && currentSession.agentState.plan.length > 0 && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text strong>执行步骤:</Text>
+              <List
+                size="small"
+                dataSource={currentSession.agentState.plan}
+                renderItem={(step, index) => (
+                  <List.Item style={{ padding: '4px 0' }}>
+                    <Space>
+                      <Tag color={getStepStatusColor(step.status)}>
+                        {step.status}
+                      </Tag>
+                      <Text>{index + 1}. {step.description}</Text>
+                      {step.duration && (
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                          {formatDuration(step.duration)}
+                        </Text>
+                      )}
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            </div>
           )}
 
           {/* 错误信息 */}
-          {currentAgentSession.error && (
-            <Card size="small" style={{ marginTop: '12px', borderColor: '#ff4d4f' }}>
-              <Space>
-                <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-                <Text strong style={{ color: '#ff4d4f' }}>执行错误</Text>
-              </Space>
-              <Paragraph style={{ margin: '8px 0 0 0', fontSize: '14px' }}>
-                {currentAgentSession.error.message}
-              </Paragraph>
-              {currentAgentSession.error.details && (
-                <Paragraph style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#666' }}>
-                  详情: {currentAgentSession.error.details}
-                </Paragraph>
-              )}
-            </Card>
+          {currentSession.error && (
+            <Alert
+              message="执行错误"
+              description={currentSession.error.message}
+              type="error"
+              showIcon
+              style={{ marginBottom: '12px' }}
+            />
+          )}
+
+          {/* 执行结果 */}
+          {currentSession.result && (
+            <div style={{ marginBottom: '12px' }}>
+              <Text strong>执行结果:</Text>
+              <div style={{ 
+                padding: '8px', 
+                backgroundColor: '#f6ffed', 
+                borderRadius: '4px',
+                marginTop: '4px'
+              }}>
+                <Text>{currentSession.result.summary}</Text>
+              </div>
+            </div>
           )}
         </Card>
       )}
 
-      {/* Agent会话历史 */}
-      {agentSessions.length > 0 && (
+      {/* 其他活跃会话 */}
+      {activeSessions.filter(s => s.id !== currentSession?.id).map(session => (
         <Card
-          size="small"
-          title={
-            <Space>
-              <EyeOutlined />
-              <Text strong>Agent会话历史</Text>
-              <Tag color="blue">{stats.total}</Tag>
-            </Space>
-          }
-          style={{ marginBottom: '16px' }}
-        >
-          <div style={{ marginBottom: '12px' }}>
-            <Space size="large">
-              <Text>总计: {stats.total}</Text>
-              <Text type="success">完成: {stats.completed}</Text>
-              <Text type="warning">运行中: {stats.running}</Text>
-              <Text type="danger">失败: {stats.failed}</Text>
-              <Text type="secondary">停止: {stats.stopped}</Text>
-            </Space>
-          </div>
-
-          <Collapse size="small">
-            {agentSessions.map((session) => (
-              <Panel
-                key={session.id}
-                header={
-                  <Space>
-                    <Tag color={getStatusColor(session.status)}>
-                      {getStatusIcon(session.status)}
-                      {session.status}
-                    </Tag>
-                    <Text ellipsis style={{ maxWidth: '200px' }}>
-                      {session.task}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {formatTimestamp(session.startTime)}
-                    </Text>
-                  </Space>
-                }
-                extra={
-                  <Space>
-                    {session.status === 'running' && (
-                      <Button 
-                        size="small" 
-                        danger 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStopSession(session.id);
-                        }}
-                      >
-                        停止
-                      </Button>
-                    )}
-                    <Button 
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleClearSession(session.id);
-                      }}
-                    >
-                      清除
-                    </Button>
-                  </Space>
-                }
-              >
-                <div style={{ padding: '8px 0' }}>
-                  <Paragraph style={{ margin: '0 0 8px 0' }}>
-                    <Text strong>目标:</Text> {session.goal}
-                  </Paragraph>
-                  
-                  {session.agentState && (
-                    <Paragraph style={{ margin: '0 0 8px 0' }}>
-                      <Text strong>进度:</Text> {session.agentState.progress.toFixed(1)}%
-                      ({session.agentState.currentStep}/{session.agentState.totalSteps})
-                    </Paragraph>
-                  )}
-
-                  {session.result && (
-                    <Paragraph style={{ margin: '0 0 8px 0' }}>
-                      <Text strong>执行时间:</Text> {formatDuration(session.result.executionTime)}
-                    </Paragraph>
-                  )}
-
-                  {session.error && (
-                    <Paragraph style={{ margin: '0 0 8px 0', color: '#ff4d4f' }}>
-                      <Text strong>错误:</Text> {session.error.message}
-                    </Paragraph>
-                  )}
-                </div>
-              </Panel>
-            ))}
-          </Collapse>
-        </Card>
-      )}
-
-      {/* Agent模式状态 */}
-      {agentMode && (
-        <Card
+          key={session.id}
           size="small"
           title={
             <Space>
               <RobotOutlined />
-              <Text strong>Agent模式</Text>
-              <Tag color="green">已启用</Tag>
+              <Text strong>Agent会话</Text>
+              <Tag color={getStatusColor(session.status)}>
+                {getStatusIcon(session.status)}
+                {session.status}
+              </Tag>
             </Space>
           }
-          style={{ backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}
+          extra={
+            <Space>
+              {session.status === 'running' && (
+                <Button 
+                  size="small" 
+                  danger 
+                  onClick={() => handleStopSession(session.id)}
+                >
+                  停止
+                </Button>
+              )}
+              <Button 
+                size="small" 
+                onClick={() => handleClearSession(session.id)}
+              >
+                清除
+              </Button>
+            </Space>
+          }
+          style={{ marginBottom: '8px' }}
         >
-          <Paragraph style={{ margin: '0', fontSize: '14px' }}>
-            Agent模式已启用，系统将使用智能Agent来执行复杂任务。
-          </Paragraph>
+          <div>
+            <Text strong>任务:</Text> {session.task}
+            <br />
+            <Text strong>开始时间:</Text> {formatTimestamp(session.startTime)}
+          </div>
         </Card>
-      )}
+      ))}
     </div>
   );
 };

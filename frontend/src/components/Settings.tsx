@@ -32,7 +32,7 @@ interface Settings {
   max_tokens: string;
   enable_memory: string;
   memory_importance_threshold: string;
-  enable_agent: string;
+
   history_window_size: string;
 }
 
@@ -244,7 +244,7 @@ const Settings: React.FC<SettingsProps> = () => {
           maxTokens: modelConfig.maxTokens || 2048,
           enableMemory: true,
           memoryImportanceThreshold: 0.5,
-          enableAgent: true,
+
           historyWindowSize: 5,
         }}
       >
@@ -504,18 +504,7 @@ const Settings: React.FC<SettingsProps> = () => {
           </Form.Item>
         </Card>
 
-        <Card title="任务流模式" style={{ marginTop: 20 }}>
-          <Form.Item
-            name="enableAgent"
-            label="启用任务流模式"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-          <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-            任务流模式允许AI将复杂任务分解为多个步骤，连续执行并调用工具，提供更强的问题解决能力。
-          </Typography.Paragraph>
-        </Card>
+
 
         <Card title="安全操作" style={{ marginTop: 20 }}>
           <Typography.Paragraph>
