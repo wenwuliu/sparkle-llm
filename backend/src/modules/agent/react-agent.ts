@@ -346,6 +346,17 @@ export class ReActAgent {
           status: 'reasoning',
           progress: (currentStepIndex / this.state.plan.length) * 100,
           message: `开始执行步骤 ${currentStepIndex + 1}: ${step.description}`,
+          data: {
+            stepIndex: currentStepIndex,
+            stepId: step.id,
+            stepType: step.type,
+            agentState: {
+              currentStep: currentStepIndex + 1,
+              totalSteps: this.state.plan.length,
+              status: 'reasoning',
+              plan: this.state.plan
+            }
+          },
           timestamp: Date.now()
         });
 
@@ -366,6 +377,26 @@ export class ReActAgent {
           this.state.status = 'acting';
           this.updateProgress();
 
+          // 发送acting状态事件
+          this.emitProgress({
+            type: 'status_change',
+            agentId: this.state.id,
+            status: 'acting',
+            progress: (currentStepIndex / this.state.plan.length) * 100,
+            message: `正在执行操作: ${reasoningResult.nextAction}`,
+            data: {
+              action: reasoningResult.nextAction,
+              confidence: reasoningResult.confidence,
+              agentState: {
+                currentStep: currentStepIndex + 1,
+                totalSteps: this.state.plan.length,
+                status: 'acting',
+                plan: this.state.plan
+              }
+            },
+            timestamp: Date.now()
+          });
+
           const actionResults = await this.actionExecutor.executeAction(
             reasoningResult.nextAction,
             this.state.context,
@@ -375,6 +406,25 @@ export class ReActAgent {
           // 3. Observing - 观察
           this.state.status = 'observing';
           this.updateProgress();
+
+          // 发送observing状态事件
+          this.emitProgress({
+            type: 'status_change',
+            agentId: this.state.id,
+            status: 'observing',
+            progress: (currentStepIndex / this.state.plan.length) * 100,
+            message: `正在观察执行结果`,
+            data: {
+              actionResults,
+              agentState: {
+                currentStep: currentStepIndex + 1,
+                totalSteps: this.state.plan.length,
+                status: 'observing',
+                plan: this.state.plan
+              }
+            },
+            timestamp: Date.now()
+          });
 
           const observationResult = await this.observationEngine.observe(
             actionResults,
@@ -417,7 +467,15 @@ export class ReActAgent {
           status: this.state.status,
           progress: ((currentStepIndex + 1) / this.state.plan.length) * 100,
           message: `步骤 ${currentStepIndex + 1} 执行完成`,
-          data: { step },
+          data: { 
+            step,
+            agentState: {
+              currentStep: currentStepIndex + 1,
+              totalSteps: this.state.plan.length,
+              status: this.state.status,
+              plan: this.state.plan
+            }
+          },
           timestamp: Date.now()
         });
 
